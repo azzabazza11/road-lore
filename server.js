@@ -24,6 +24,61 @@ const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-3.6-flash';
 const GEMINI_TEXT_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_TEXT_MODEL + ':generateContent';
 
+// --- Simple abuse protection for the paid Gemini endpoints ---------------
+// Per-IP sliding-window rate limit plus a global daily cap. Counters are
+// in-memory, so with multiple Cloud Run instances each instance keeps its own
+// tally (keep --max-instances low; use a shared store for a hard global cap).
+const RATE_WINDOW_MS = Number(process.env.RATE_WINDOW_MS) || 60000; // 1 minute
+const RATE_MAX = Number(process.env.RATE_MAX) || 20;                // per IP / window
+const DAILY_CAP = Number(process.env.DAILY_CAP) || 500;            // per instance / UTC day
+
+const ipHits = new Map();
+let dayKey = new Date().toISOString().slice(0, 10);
+let dayCount = 0;
+
+function clientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return String(xff).split(',')[0].trim();
+  return (req.socket && req.socket.remoteAddress) || 'unknown';
+}
+
+// Returns true if the request may proceed; otherwise writes a 429 and returns false.
+function allowRequest(req, res) {
+  const now = Date.now();
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== dayKey) { dayKey = today; dayCount = 0; ipHits.clear(); }
+
+  if (dayCount >= DAILY_CAP) {
+    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '3600' });
+    res.end(JSON.stringify({ error: 'Daily limit reached. Please try again tomorrow.' }));
+    return false;
+  }
+
+  const ip = clientIp(req);
+  const cutoff = now - RATE_WINDOW_MS;
+  let hits = ipHits.get(ip);
+  if (!hits) { hits = []; ipHits.set(ip, hits); }
+  while (hits.length && hits[0] < cutoff) hits.shift();
+
+  if (hits.length >= RATE_MAX) {
+    const retry = Math.max(1, Math.ceil((hits[0] + RATE_WINDOW_MS - now) / 1000));
+    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': String(retry) });
+    res.end(JSON.stringify({ error: 'Too many requests — slow down a moment.' }));
+    return false;
+  }
+
+  hits.push(now);
+  dayCount++;
+
+  // Bound memory if lots of distinct IPs show up.
+  if (ipHits.size > 5000) {
+    for (const [k, v] of ipHits) {
+      if (!v.length || v[v.length - 1] < cutoff) ipHits.delete(k);
+    }
+  }
+  return true;
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -56,6 +111,7 @@ function readBody(req, maxBytes = 1_000_000) {
 }
 
 async function handleTts(req, res) {
+  if (!allowRequest(req, res)) return;
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     sendJson(res, 500, { error: 'Server is missing GEMINI_API_KEY. Set it in the environment.' });
@@ -135,6 +191,7 @@ function parseLoreJson(text, fallbackTitle) {
 }
 
 async function handleLore(req, res) {
+  if (!allowRequest(req, res)) return;
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     sendJson(res, 500, { error: 'Server is missing GEMINI_API_KEY. Set it in the environment.' });
@@ -261,4 +318,5 @@ server.listen(PORT, () => {
   console.log('Road Lore server on http://localhost:' + PORT);
   console.log('Gemini key: ' + (hasKey ? 'loaded from env' : 'MISSING (set GEMINI_API_KEY to enable /api/tts and /api/lore)'));
   console.log('Models: tts=' + GEMINI_MODEL + '  text=' + GEMINI_TEXT_MODEL);
+  console.log('Limits: ' + RATE_MAX + ' req / ' + Math.round(RATE_WINDOW_MS / 1000) + 's per IP, ' + DAILY_CAP + ' / day (per instance)');
 });

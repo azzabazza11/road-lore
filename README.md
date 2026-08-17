@@ -66,10 +66,23 @@ gcloud run deploy road-lore \
   --source . \
   --region australia-southeast1 \
   --allow-unauthenticated \
+  --max-instances 5 \
   --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest
 ```
 
 Cloud Run prints a `https://road-lore-XXXXXXXX.run.app` URL — that serves the app and the APIs from one origin (no CORS setup needed), and is what you point the hub tile at. The key is injected at runtime from Secret Manager and is never in the image. Cloud Run sets `PORT`, which `server.js` already honours.
+
+### Cost / abuse protection
+
+The Gemini endpoints cost money per call, so the server guards them:
+
+| Env var | Default | Meaning |
+| --- | --- | --- |
+| `RATE_MAX` | `20` | Max `/api/*` requests per IP per window |
+| `RATE_WINDOW_MS` | `60000` | Rate-limit window (ms) |
+| `DAILY_CAP` | `500` | Total `/api/*` calls per instance per UTC day |
+
+Over the limit returns HTTP `429` with `Retry-After`. Counters are in-memory, so with several instances each keeps its own tally — keep `--max-instances` low (e.g. `5`) so the effective daily ceiling stays bounded; for a hard global cap use a shared store (Firestore/Redis). Also set a **GCP budget alert** so you're warned well before the $20 runs out. Tune limits per deploy, e.g. `--set-env-vars RATE_MAX=15,DAILY_CAP=300`.
 
 ## AI local-history stories (optional)
 
