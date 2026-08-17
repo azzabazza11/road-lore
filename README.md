@@ -37,4 +37,23 @@ Version: **1.0.2**
 
 ## Gemini AI voice (optional)
 
-In **Settings → Narration voice → Gemini AI voice**, paste a [Google AI Studio](https://aistudio.google.com/apikey) API key. The key is stored only on your phone. Uses `gemini-2.5-flash-preview-tts` for natural narration (small per-use cost on your Google account).
+There are two ways to use the higher-quality Gemini voice (`gemini-2.5-flash-preview-tts`). Pick **one**:
+
+### A. Backend proxy — key stays on the server (recommended for a shared key)
+
+The key is held server-side and never shipped to the browser. Run the included Node server instead of the static Python server:
+
+```bash
+cp .env.example .env      # then edit .env and paste your key (this file is gitignored)
+npm start                 # or: GEMINI_API_KEY=your-key node server.js
+```
+
+Open **http://localhost:8080/** and choose **Settings → Narration voice → Gemini AI voice** (leave the API key field blank). The browser calls `POST /api/tts`, and `server.js` calls Gemini using `GEMINI_API_KEY` from the environment.
+
+> GitHub Pages is static-only and cannot run this proxy. To use the backend in production, deploy `server.js` (or an equivalent `/api/tts` function) to a host that supports server code (e.g. a serverless function) and set `GEMINI_API_KEY` there as a secret.
+
+**Never commit your key.** Put it in `.env` (gitignored) or a host secret — not in the source.
+
+### B. Bring-your-own key — for plain static hosting (e.g. GitHub Pages)
+
+With no backend running, paste your own [Google AI Studio](https://aistudio.google.com/apikey) key in **Settings → Narration voice → Gemini AI voice**. It is stored only on your device (`localStorage`) and sent directly from your browser to Google. Small per-use cost on your Google account.

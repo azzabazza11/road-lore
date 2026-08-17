@@ -1,0 +1,10 @@
+{
+  "name": "road-lore",
+  "version": "1.0.2",
+  "private": true,
+  "description": "Road Lore travel companion PWA + optional Gemini voice backend proxy",
+  "scripts": {
+    "start": "node server.js",
+    "start:env": "node --env-file=.env server.js"
+  }
+}

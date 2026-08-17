@@ -378,14 +378,14 @@
       </div>
       <div id="geminiVoicePanel" class="voice-panel">
         <label>
-          Gemini API key
+          Gemini API key <span style="opacity:.7">(optional if a backend is running)</span>
           <input type="password" id="geminiApiKey" autocomplete="off" placeholder="Paste key from Google AI Studio" />
         </label>
         <label>
           Gemini voice
           <select id="geminiVoice"></select>
         </label>
-        <p class="hint">Key stays on this phone only. Get one at <a class="wiki" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Uses model <code>gemini-2.5-flash-preview-tts</code>.</p>
+        <p class="hint">If a Road Lore backend is running, the voice is generated server-side and no key is needed here. Otherwise (plain static hosting) paste your own key — it stays on this phone only. Get one at <a class="wiki" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Uses model <code>gemini-2.5-flash-preview-tts</code>.</p>
       </div>
       <div class="row">
         <span>Auto-narrate nearby lore</span>
@@ -601,42 +601,80 @@
       });
     }
 
-    async function speakGemini(text, onEnd, gen) {
-      const key = (state.settings.geminiApiKey || '').trim();
-      if (!key) {
-        setVoiceStatus('Add Gemini API key in Settings');
-        onEnd && onEnd(false);
-        return;
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+
+    // Ask the backend proxy (server.js) for audio. The proxy holds the API key
+    // server-side, so nothing secret ships to the browser. Returns PCM bytes,
+    // or null if no backend is available (e.g. plain static hosting).
+    async function ttsViaProxy(text, voice) {
+      try {
+        const res = await fetch('api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice })
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data && data.audio ? b64ToBytes(data.audio) : null;
+      } catch {
+        return null;
       }
+    }
+
+    // Direct browser call using a user-supplied key from Settings. Only used as a
+    // fallback when no backend proxy is present (static hosting). The key stays on
+    // the user's device.
+    async function ttsViaClientKey(text, voice) {
+      const key = (state.settings.geminiApiKey || '').trim();
+      if (!key) return null;
+      const res = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_TTS_MODEL + ':generateContent',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text }] }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
+            }
+          })
+        }
+      );
+      if (!res.ok) throw new Error('gemini ' + res.status);
+      const data = await res.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      const b64 = parts.find(p => p.inlineData)?.inlineData?.data;
+      if (!b64) throw new Error('no audio');
+      return b64ToBytes(b64);
+    }
+
+    async function speakGemini(text, onEnd, gen) {
       speaking = true;
       setVoiceStatus('Generating AI voice…');
       $('eyebrow').textContent = 'Now narrating';
       $('placePill').classList.add('talk');
+      const voice = state.settings.geminiVoice || 'Kore';
       try {
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key
-          },
-          body: JSON.stringify({
-            model: GEMINI_TTS_MODEL,
-            input: text,
-            response_format: { type: 'audio' },
-            generation_config: {
-              speech_config: [{ voice: state.settings.geminiVoice || 'Kore' }]
-            }
-          })
-        });
+        let pcm = await ttsViaProxy(text, voice);
         if (gen !== speakGen) return;
-        if (!res.ok) throw new Error('gemini ' + res.status);
-        const data = await res.json();
-        const b64 = data?.output_audio?.data;
-        if (!b64) throw new Error('no audio');
-        const bin = atob(b64);
-        const pcm = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) pcm[i] = bin.charCodeAt(i);
-        if (gen !== speakGen) return;
+        if (!pcm) {
+          if (!(state.settings.geminiApiKey || '').trim()) {
+            speaking = false;
+            setVoiceStatus('Run backend or add Gemini key');
+            $('placePill').classList.remove('talk');
+            onEnd && onEnd(false);
+            return;
+          }
+          pcm = await ttsViaClientKey(text, voice);
+          if (gen !== speakGen) return;
+        }
+        if (!pcm) throw new Error('no audio');
         setVoiceStatus('Speaking…');
         await playPcm(pcm);
         if (gen !== speakGen) return;
