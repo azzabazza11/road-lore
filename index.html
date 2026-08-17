@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#10161c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Road Lore" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <title>Road Lore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@450;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #0c1218;
+      --bg1: #152029;
+      --panel: #172430;
+      --ink: #eef3f7;
+      --muted: #93a4b3;
+      --line: #2a3a48;
+      --accent: #e2b15a;
+      --accent-ink: #1a1408;
+      --soft: #6ec4b8;
+      --bad: #ff7a7a;
+      --chip: #1c2b38;
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-l: env(safe-area-inset-left, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
+      --tap: 48px;
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      font-family: "Outfit", system-ui, sans-serif;
+      font-weight: 450;
+      background:
+        radial-gradient(ellipse 90% 60% at 50% -10%, #243445 0%, transparent 55%),
+        radial-gradient(ellipse 70% 40% at 100% 100%, #1a2c28 0%, transparent 45%),
+        var(--bg0);
+    }
+    body {
+      padding:
+        calc(12px + var(--safe-t))
+        calc(14px + var(--safe-r))
+        calc(18px + var(--safe-b))
+        calc(14px + var(--safe-l));
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; border: 0; background: none; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: var(--tap);
+      margin-bottom: 14px;
+    }
+    .brand {
+      flex: 1;
+      min-width: 0;
+    }
+    .brand h1 {
+      margin: 0;
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 650;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .icon-btn {
+      width: var(--tap);
+      height: var(--tap);
+      border-radius: 14px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 1.1rem;
+      flex: 0 0 auto;
+    }
+    .icon-btn:active { transform: scale(0.96); }
+
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 22px 18px 18px;
+      background:
+        linear-gradient(165deg, rgba(226, 177, 90, 0.08), transparent 40%),
+        linear-gradient(180deg, #1a2834, #121c24);
+      margin-bottom: 14px;
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+    }
+    .eyebrow {
+      color: var(--soft);
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .topic {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(1.55rem, 6.2vw, 2.1rem);
+      font-weight: 650;
+      line-height: 1.15;
+      margin: 0 0 12px;
+      letter-spacing: -0.02em;
+    }
+    .excerpt {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+      flex: 1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 7;
+      -webkit-box-orient: vertical;
+    }
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--chip);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .pill strong { color: var(--ink); font-weight: 700; }
+    .pill.live { border-color: #2f6b63; color: var(--soft); }
+    .pill.talk { border-color: #7a5a22; color: var(--accent); }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .btn {
+      min-height: 56px;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn.primary {
+      background: linear-gradient(180deg, #ecc178, #c9953d);
+      border-color: #a8782c;
+      color: var(--accent-ink);
+    }
+    .btn.danger {
+      background: #2a1818;
+      border-color: #6a3030;
+      color: #ffc0c0;
+    }
+    .btn:disabled { opacity: 0.4; }
+
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 14px;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #4a5568; display: inline-block;
+    }
+    .dot.on { background: var(--soft); box-shadow: 0 0 0 4px rgba(110, 196, 184, 0.15); }
+    .dot.warn { background: var(--accent); }
+    .dot.bad { background: var(--bad); }
+
+    .panel {
+      background: rgba(23, 36, 48, 0.92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .log {
+      display: grid;
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .log-item {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--chip);
+      border: 1px solid var(--line);
+    }
+    .log-item b {
+      display: block;
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 650;
+      margin-bottom: 4px;
+    }
+    .log-item span { color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+
+    .screen { display: none; }
+    .screen.active { display: block; animation: fade .2s ease; }
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .settings label {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .settings input[type="number"],
+    .settings select {
+      min-height: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      padding: 0 12px;
+      color: var(--ink);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .toggle {
+      width: 52px; height: 32px; border-radius: 999px;
+      background: #243149; border: 1px solid var(--line);
+      position: relative; flex: 0 0 auto;
+    }
+    .toggle::after {
+      content: "";
+      position: absolute; top: 3px; left: 3px;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #8b9bb8;
+      transition: transform .18s ease, background .18s ease;
+    }
+    .toggle.on { background: #3d6b48; border-color: #4f8a5c; }
+    .toggle.on::after { transform: translateX(20px); background: #eef3f7; }
+
+    .empty { color: var(--muted); font-size: 0.88rem; padding: 4px 0; }
+    a.wiki {
+      color: var(--soft);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="home" class="screen active">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Road Lore</h1>
+        <p>Local stories as you drive</p>
+      </div>
+      <button class="icon-btn" id="btnMute" title="Mute" aria-label="Mute">🔊</button>
+      <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+
+    <section class="hero" id="hero">
+      <div class="eyebrow" id="eyebrow">Ready when you are</div>
+      <h2 class="topic" id="topic">Your roadside companion</h2>
+      <p class="excerpt" id="excerpt">Start a trip and I’ll look up nearby places — towns, landmarks, history — then read a short intro aloud as you pass through.</p>
+      <div class="meta-row">
+        <span class="pill" id="placePill">Near <strong id="placeVal">—</strong></span>
+        <span class="pill" id="distPill"><strong id="distVal">—</strong> km away</span>
+        <span class="pill" id="speedPill"><strong id="speedVal">—</strong> km/h</span>
+      </div>
+    </section>
+
+    <div class="controls">
+      <button class="btn primary" id="btnTrip">Start trip</button>
+      <button class="btn" id="btnSkip" disabled>Skip</button>
+      <button class="btn" id="btnReplay" disabled>Replay</button>
+    </div>
+
+    <div class="status">
+      <span><span class="dot" id="gpsDot"></span> <span id="gpsStatus">GPS idle</span></span>
+      <span id="voiceStatus">Voice ready</span>
+      <span id="tripStatus">Trip 0.0 km</span>
+    </div>
+
+    <div class="panel">
+      <h2>Along the way</h2>
+      <div class="log" id="heardLog"><div class="empty">Nothing narrated yet.</div></div>
+    </div>
+  </div>
+
+  <div id="settings" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" id="btnBack" aria-label="Back">←</button>
+      <div class="brand"><h1>Settings</h1></div>
+    </div>
+    <div class="panel settings">
+      <label>
+        Search radius (km)
+        <input type="number" id="radiusKm" min="2" max="40" step="1" />
+      </label>
+      <label>
+        Min km between stories
+        <input type="number" id="minGapKm" min="0.5" max="30" step="0.5" />
+      </label>
+      <label>
+        Speaking rate
+        <input type="number" id="rate" min="0.7" max="1.4" step="0.05" />
+      </label>
+      <label>
+        Voice
+        <select id="voiceSelect"></select>
+      </label>
+      <div class="row">
+        <span>Auto-narrate nearby lore</span>
+        <button class="toggle on" id="autoToggle" type="button" aria-pressed="true"></button>
+      </div>
+      <div class="row">
+        <span>Keep screen awake</span>
+        <button class="toggle on" id="wakeToggle" type="button" aria-pressed="true"></button>
+      </div>
+      <p class="hint">Uses Wikipedia near your GPS for short introductions. Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
+      <button class="btn" id="btnTestVoice" style="width:100%;margin-top:8px">Test voice</button>
+      <button class="btn danger" id="btnReset" style="width:100%;margin-top:8px">Forget heard places</button>
+    </div>
+    <div class="panel">
+      <p class="hint">Version 1.0.0 · Lore text from Wikipedia · Data stays on this phone</p>
+    </div>
+  </div>
+
+  <script>
+    const STORE_KEY = 'road-lore-v1';
+    const WIKI = 'https://en.wikipedia.org/w/api.php';
+    const LOOKUP_MIN_MS = 12000;
+    const SAMPLE_MIN_MS = 1000;
+
+    const $ = id => document.getElementById(id);
+
+    const defaultState = () => ({
+      settings: {
+        radiusKm: 12,
+        minGapKm: 4,
+        rate: 1,
+        voiceURI: '',
+        auto: true,
+        wakeLock: true,
+        muted: false
+      },
+      heard: {},
+      log: []
+    });
+
+    let state = loadState();
+    let tripOn = false;
+    let watchId = null;
+    let wakeLock = null;
+    let lastPos = null;
+    let tripMeters = 0;
+    let lastLookupAt = 0;
+    let lastStoryAtPos = null;
+    let currentStory = null;
+    let speaking = false;
+    let voices = [];
+    let lookupBusy = false;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return defaultState();
+        const p = JSON.parse(raw);
+        return {
+          ...defaultState(),
+          ...p,
+          settings: { ...defaultState().settings, ...(p.settings || {}) },
+          heard: p.heard || {},
+          log: p.log || []
+        };
+      } catch {
+        return defaultState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    }
+
+    function showScreen(name) {
+      ['home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
+    }
+
+    function haversine(a, b) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat);
+      const lat2 = toRad(b.lat);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    function kmhFrom(coords, prev, dtMs) {
+      if (typeof coords.speed === 'number' && coords.speed >= 0 && !Number.isNaN(coords.speed)) {
+        return coords.speed * 3.6;
+      }
+      if (prev && dtMs > 400) {
+        const m = haversine(prev, { lat: coords.latitude, lng: coords.longitude });
+        return (m / (dtMs / 1000)) * 3.6;
+      }
+      return 0;
+    }
+
+    function setGps(text, mode) {
+      $('gpsStatus').textContent = text;
+      $('gpsDot').className = 'dot' + (mode ? ' ' + mode : '');
+    }
+
+    function setVoiceStatus(text) {
+      $('voiceStatus').textContent = text;
+    }
+
+    function formatKm(m) {
+      return (m / 1000).toFixed(1);
+    }
+
+    function cleanExtract(text) {
+      if (!text) return '';
+      return text
+        .replace(/\s+/g, ' ')
+        .replace(/\(listen\)/gi, '')
+        .trim();
+    }
+
+    function clipForSpeech(text, maxChars = 520) {
+      const t = cleanExtract(text);
+      if (t.length <= maxChars) return t;
+      const slice = t.slice(0, maxChars);
+      const end = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '));
+      return (end > 180 ? slice.slice(0, end + 1) : slice.trim()) + '';
+    }
+
+    function pickVoice() {
+      if (!voices.length) return null;
+      if (state.settings.voiceURI) {
+        const match = voices.find(v => v.voiceURI === state.settings.voiceURI);
+        if (match) return match;
+      }
+      const prefer = voices.find(v => /en(-|_)?(NZ|AU|GB|US)/i.test(v.lang) && /female|natural|google|premium|enhanced/i.test(v.name))
+        || voices.find(v => /en(-|_)?(NZ|AU|GB)/i.test(v.lang))
+        || voices.find(v => /^en/i.test(v.lang));
+      return prefer || voices[0];
+    }
+
+    function populateVoices() {
+      voices = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang) || !v.lang);
+      const sel = $('voiceSelect');
+      const cur = state.settings.voiceURI;
+      sel.innerHTML = voices.map(v =>
+        `<option value="${v.voiceURI.replace(/"/g, '')}">${v.name} (${v.lang})</option>`
+      ).join('') || '<option value="">Default</option>';
+      if (cur) sel.value = cur;
+    }
+
+    function stopSpeech() {
+      speechSynthesis.cancel();
+      speaking = false;
+    }
+
+    function speak(text, onEnd) {
+      if (!('speechSynthesis' in window)) {
+        setVoiceStatus('No speech on this device');
+        onEnd && onEnd(false);
+        return;
+      }
+      stopSpeech();
+      if (state.settings.muted) {
+        setVoiceStatus('Muted');
+        onEnd && onEnd(false);
+        return;
+      }
+      const u = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice();
+      if (voice) u.voice = voice;
+      u.rate = state.settings.rate;
+      u.pitch = 1;
+      u.onstart = () => {
+        speaking = true;
+        setVoiceStatus('Speaking…');
+        $('eyebrow').textContent = 'Now narrating';
+        $('placePill').classList.add('talk');
+      };
+      u.onend = () => {
+        speaking = false;
+        setVoiceStatus('Voice ready');
+        $('placePill').classList.remove('talk');
+        onEnd && onEnd(true);
+      };
+      u.onerror = () => {
+        speaking = false;
+        setVoiceStatus('Voice error');
+        onEnd && onEnd(false);
+      };
+      speechSynthesis.speak(u);
+    }
+
+    async function wikiGeosearch(lat, lng, radiusM) {
+      const url = new URL(WIKI);
+      url.searchParams.set('action', 'query');
+      url.searchParams.set('list', 'geosearch');
+      url.searchParams.set('gscoord', lat + '|' + lng);
+      url.searchParams.set('gsradius', String(Math.min(10000, Math.max(1000, Math.round(radiusM))));
+      url.searchParams.set('gslimit', '12');
+      url.searchParams.set('format', 'json');
+      url.searchParams.set('origin', '*');
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('geo fail');
+      const data = await res.json();
+      return data?.query?.geosearch || [];
+    }
+
+    async function wikiExtracts(pageids) {
+      if (!pageids.length) return {};
+      const url = new URL(WIKI);
+      url.searchParams.set('action', 'query');
+      url.searchParams.set('prop', 'extracts|info');
+      url.searchParams.set('exintro', '1');
+      url.searchParams.set('explaintext', '1');
+      url.searchParams.set('inprop', 'url');
+      url.searchParams.set('pageids', pageids.join('|'));
+      url.searchParams.set('format', 'json');
+      url.searchParams.set('origin', '*');
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('extract fail');
+      const data = await res.json();
+      return data?.query?.pages || {};
+    }
+
+    function scoreCandidate(item, lat, lng, kmh) {
+      const heard = state.heard[String(item.pageid)];
+      if (heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) return -1;
+      let score = 1000 - item.dist;
+      const title = item.title || '';
+      if (/list of|disambiguation|railway station|highway|route \d|state highway/i.test(title)) score -= 400;
+      if (/history|museum|heritage|castle|cathedral|park|river|mountain|bay|harbour|harbor|bridge|fort|town|city|village/i.test(title)) score += 120;
+      if (kmh > 70 && item.dist > 2500) score += 40;
+      if (kmh < 40 && item.dist < 1500) score += 40;
+      return score;
+    }
+
+    async function findStory(lat, lng, kmh) {
+      const radiusM = Math.min(10000, state.settings.radiusKm * 1000);
+      const nearby = await wikiGeosearch(lat, lng, radiusM);
+      if (!nearby.length) return null;
+
+      const ranked = nearby
+        .map(n => ({ ...n, score: scoreCandidate(n, lat, lng, kmh) }))
+        .filter(n => n.score >= 0)
+        .sort((a, b) => b.score - a.score);
+
+      if (!ranked.length) return null;
+
+      const top = ranked.slice(0, 5);
+      const pages = await wikiExtracts(top.map(t => t.pageid));
+      for (const cand of top) {
+        const page = pages[String(cand.pageid)];
+        if (!page || page.missing != null) continue;
+        const extract = cleanExtract(page.extract || '');
+        if (extract.length < 80) continue;
+        return {
+          pageid: cand.pageid,
+          title: page.title || cand.title,
+          extract,
+          dist: cand.dist,
+          lat: cand.lat,
+          lng: cand.lon,
+          url: page.fullurl || ('https://en.wikipedia.org/?curid=' + cand.pageid)
+        };
+      }
+      return null;
+    }
+
+    function presentStory(story, { speakIt = true } = {}) {
+      currentStory = story;
+      $('eyebrow').textContent = speakIt ? 'Found nearby' : 'Paused on';
+      $('topic').textContent = story.title;
+      $('excerpt').textContent = clipForSpeech(story.extract, 700);
+      $('placeVal').textContent = story.title;
+      $('distVal').textContent = (story.dist / 1000).toFixed(1);
+      $('placePill').classList.add('live');
+      $('btnSkip').disabled = false;
+      $('btnReplay').disabled = false;
+
+      state.heard[String(story.pageid)] = Date.now();
+      state.log.unshift({
+        t: Date.now(),
+        title: story.title,
+        extract: clipForSpeech(story.extract, 160),
+        url: story.url,
+        dist: story.dist
+      });
+      if (state.log.length > 40) state.log.length = 40;
+      saveState();
+      renderLog();
+
+      if (speakIt && state.settings.auto) {
+        const line = story.title + '. ' + clipForSpeech(story.extract, 520);
+        speak(line);
+      }
+    }
+
+    function renderLog() {
+      const box = $('heardLog');
+      if (!state.log.length) {
+        box.innerHTML = '<div class="empty">Nothing narrated yet.</div>';
+        return;
+      }
+      box.innerHTML = state.log.slice(0, 12).map(item => {
+        const when = new Date(item.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `<div class="log-item"><b>${item.title}</b><span>${when} · ${(item.dist / 1000).toFixed(1)} km — ${item.extract}</span>
+          <div style="margin-top:6px"><a class="wiki" href="${item.url}" target="_blank" rel="noopener">Wikipedia</a></div></div>`;
+      }).join('');
+    }
+
+    function renderSettings() {
+      $('radiusKm').value = state.settings.radiusKm;
+      $('minGapKm').value = state.settings.minGapKm;
+      $('rate').value = state.settings.rate;
+      populateVoices();
+      $('autoToggle').classList.toggle('on', state.settings.auto);
+      $('wakeToggle').classList.toggle('on', state.settings.wakeLock);
+      $('btnMute').textContent = state.settings.muted ? '🔇' : '🔊';
+    }
+
+    function canTellAnother(pos) {
+      if (!lastStoryAtPos) return true;
+      const gap = state.settings.minGapKm * 1000;
+      return haversine(lastStoryAtPos, pos) >= gap;
+    }
+
+    async function maybeLookup(pos, kmh) {
+      if (!tripOn || lookupBusy || speaking) return;
+      if (!state.settings.auto) return;
+      if (!canTellAnother(pos)) return;
+      const now = Date.now();
+      if (now - lastLookupAt < LOOKUP_MIN_MS) return;
+      // Prefer looking up while actually moving, but allow slow/crawling town speeds
+      if (kmh < 3 && tripMeters > 50) return;
+
+      lastLookupAt = now;
+      lookupBusy = true;
+      setGps('Looking up lore…', 'warn');
+      try {
+        const story = await findStory(pos.lat, pos.lng, kmh);
+        if (story) {
+          lastStoryAtPos = { lat: pos.lat, lng: pos.lng };
+          presentStory(story, { speakIt: true });
+          setGps('GPS live', 'on');
+        } else {
+          setGps('GPS live · no new lore', 'on');
+        }
+      } catch (err) {
+        setGps('Lookup failed · check network', 'bad');
+      } finally {
+        lookupBusy = false;
+      }
+    }
+
+    async function requestWakeLock() {
+      if (!state.settings.wakeLock || !('wakeLock' in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch { /* ignore */ }
+    }
+
+    function releaseWakeLock() {
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+        wakeLock = null;
+      }
+    }
+
+    let lastSampleAt = 0;
+    function onPosition(pos) {
+      const now = Date.now();
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const prev = lastPos;
+      const dt = prev ? now - prev.t : 0;
+      const kmh = kmhFrom(pos.coords, prev, dt);
+
+      if (prev) tripMeters += haversine(prev, { lat, lng });
+      lastPos = { lat, lng, t: now, kmh };
+
+      $('speedVal').textContent = Math.round(kmh).toString();
+      $('tripStatus').textContent = 'Trip ' + formatKm(tripMeters) + ' km';
+      setGps(typeof accuracy === 'number' && accuracy > 80 ? 'GPS weak' : 'GPS live',
+        typeof accuracy === 'number' && accuracy > 80 ? 'warn' : 'on');
+
+      if (now - lastSampleAt < SAMPLE_MIN_MS) return;
+      lastSampleAt = now;
+      maybeLookup({ lat, lng }, kmh);
+    }
+
+    function onGeoError(err) {
+      setGps(err.code === 1 ? 'Location denied' : 'GPS error', 'bad');
+    }
+
+    function startTrip() {
+      if (!('geolocation' in navigator)) {
+        setGps('No geolocation', 'bad');
+        return;
+      }
+      // Unlock speech on user gesture
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      tripOn = true;
+      tripMeters = 0;
+      lastStoryAtPos = null;
+      lastLookupAt = 0;
+      $('btnTrip').textContent = 'End trip';
+      $('btnTrip').classList.remove('primary');
+      $('btnTrip').classList.add('danger');
+      $('eyebrow').textContent = 'Trip started';
+      setGps('Acquiring GPS…', 'warn');
+      requestWakeLock();
+      watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
+        enableHighAccuracy: true,
+        maximumAge: 1500,
+        timeout: 15000
+      });
+    }
+
+    function endTrip() {
+      tripOn = false;
+      if (watchId != null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      stopSpeech();
+      releaseWakeLock();
+      $('btnTrip').textContent = 'Start trip';
+      $('btnTrip').classList.add('primary');
+      $('btnTrip').classList.remove('danger');
+      setGps('GPS idle', '');
+      setVoiceStatus(state.settings.muted ? 'Muted' : 'Voice ready');
+      $('eyebrow').textContent = 'Trip ended';
+    }
+
+    // Events
+    $('btnTrip').addEventListener('click', () => {
+      if (tripOn) endTrip();
+      else startTrip();
+    });
+
+    $('btnSkip').addEventListener('click', async () => {
+      if (!lastPos || lookupBusy) return;
+      stopSpeech();
+      lastStoryAtPos = null;
+      lastLookupAt = 0;
+      lookupBusy = true;
+      setGps('Looking up lore…', 'warn');
+      try {
+        const story = await findStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
+        if (story) {
+          lastStoryAtPos = { lat: lastPos.lat, lng: lastPos.lng };
+          presentStory(story, { speakIt: true });
+          setGps('GPS live', 'on');
+        } else {
+          setGps('GPS live · no new lore', 'on');
+        }
+      } catch {
+        setGps('Lookup failed · check network', 'bad');
+      } finally {
+        lookupBusy = false;
+      }
+    });
+
+    $('btnReplay').addEventListener('click', () => {
+      if (!currentStory) return;
+      const line = currentStory.title + '. ' + clipForSpeech(currentStory.extract, 520);
+      speak(line);
+    });
+
+    $('btnMute').addEventListener('click', () => {
+      state.settings.muted = !state.settings.muted;
+      saveState();
+      renderSettings();
+      if (state.settings.muted) stopSpeech();
+      setVoiceStatus(state.settings.muted ? 'Muted' : 'Voice ready');
+    });
+
+    $('btnSettings').addEventListener('click', () => {
+      renderSettings();
+      showScreen('settings');
+    });
+    $('btnBack').addEventListener('click', () => showScreen('home'));
+
+    function bindNum(id, key, min, max) {
+      $(id).addEventListener('change', () => {
+        let v = Number($(id).value);
+        if (Number.isNaN(v)) v = state.settings[key];
+        state.settings[key] = Math.min(max, Math.max(min, v));
+        saveState();
+        renderSettings();
+      });
+    }
+    bindNum('radiusKm', 'radiusKm', 2, 40);
+    bindNum('minGapKm', 'minGapKm', 0.5, 30);
+    bindNum('rate', 'rate', 0.7, 1.4);
+
+    $('voiceSelect').addEventListener('change', () => {
+      state.settings.voiceURI = $('voiceSelect').value;
+      saveState();
+    });
+
+    $('autoToggle').addEventListener('click', () => {
+      state.settings.auto = !state.settings.auto;
+      saveState();
+      renderSettings();
+    });
+    $('wakeToggle').addEventListener('click', () => {
+      state.settings.wakeLock = !state.settings.wakeLock;
+      saveState();
+      renderSettings();
+      if (tripOn && state.settings.wakeLock) requestWakeLock();
+      if (!state.settings.wakeLock) releaseWakeLock();
+    });
+
+    $('btnTestVoice').addEventListener('click', () => {
+      speak('Road Lore is ready. I will share a little local history as you travel.');
+    });
+
+    $('btnReset').addEventListener('click', () => {
+      if (!confirm('Forget which places have already been narrated?')) return;
+      state.heard = {};
+      state.log = [];
+      saveState();
+      renderLog();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && tripOn) requestWakeLock();
+    });
+
+    if ('speechSynthesis' in window) {
+      populateVoices();
+      speechSynthesis.onvoiceschanged = populateVoices;
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    }
+
+    renderSettings();
+    renderLog();
+  </script>
+</body>
+</html>

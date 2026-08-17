@@ -1,0 +1,19 @@
+{
+  "name": "Road Lore",
+  "short_name": "Road Lore",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14100c",
+  "theme_color": "#14100c",
+  "description": "Travel companion that narrates local history and interesting places as you drive.",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
