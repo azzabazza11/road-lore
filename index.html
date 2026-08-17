@@ -11,7 +11,7 @@
   <meta name="description" content="Travel companion that narrates local history and interesting places as you drive." />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
   <title>Road Lore</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -298,6 +298,7 @@
         <h1>Road Lore</h1>
         <p>Local stories as you drive</p>
       </div>
+      <button class="icon-btn" id="btn-install" title="Install" aria-label="Install">↓</button>
       <button class="icon-btn" id="btnMute" title="Mute" aria-label="Mute">🔊</button>
       <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">⚙</button>
     </div>
@@ -908,11 +909,13 @@
     }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      navigator.serviceWorker.register('./service-worker.js?v=1.0.1').catch(() => {});
     }
 
     renderSettings();
     renderLog();
   </script>
+  <script>window.PWA_INSTALL = { slug: 'road-lore', name: 'Road Lore' };</script>
+  <script src="./install.js?v=1"></script>
 </body>
 </html>
