@@ -1,0 +1,9 @@
+# Files not to upload to Cloud Build when running `gcloud run deploy --source .`
+# (Presence of this file means gcloud ignores .gitignore, so list cruft/secrets here.)
+.git
+.env
+.env.*
+!.env.example
+node_modules
+*.log
+.DS_Store

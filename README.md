@@ -51,6 +51,26 @@ Open **http://localhost:8080/** and choose **Settings → Narration voice → Ge
 
 > GitHub Pages is static-only and cannot run this proxy, so the Gemini voice only works where the backend runs. To use it in production, deploy `server.js` (or an equivalent `/api/tts` function) to a host that supports server code (e.g. a serverless function) and set `GEMINI_API_KEY` there as a secret. On plain static hosting the app falls back to the free offline **Device voice**.
 
+## Deploy to Google Cloud Run
+
+The backend (which serves the whole app + `/api/tts` + `/api/lore`) runs as a container, so it deploys to Cloud Run for a stable public HTTPS URL — ideal for linking from an app hub, and it removes the laptop/tunnel dependency.
+
+```bash
+# 1. Store the key in Secret Manager (once). Paste your key at the prompt:
+printf '%s' 'YOUR_GEMINI_KEY' | gcloud secrets create GEMINI_API_KEY --data-file=-
+#    (to rotate later: ...gcloud secrets versions add GEMINI_API_KEY --data-file=-)
+
+# 2. Deploy from source (Cloud Build uses the included Dockerfile).
+#    australia-southeast1 (Sydney) is the closest region to NZ.
+gcloud run deploy road-lore \
+  --source . \
+  --region australia-southeast1 \
+  --allow-unauthenticated \
+  --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest
+```
+
+Cloud Run prints a `https://road-lore-XXXXXXXX.run.app` URL — that serves the app and the APIs from one origin (no CORS setup needed), and is what you point the hub tile at. The key is injected at runtime from Secret Manager and is never in the image. Cloud Run sets `PORT`, which `server.js` already honours.
+
 ## AI local-history stories (optional)
 
 With the backend running, **Settings → Lore source** offers:
