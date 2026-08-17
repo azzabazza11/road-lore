@@ -37,23 +37,15 @@ Version: **1.0.2**
 
 ## Gemini AI voice (optional)
 
-There are two ways to use the higher-quality Gemini voice (`gemini-2.5-flash-preview-tts`). Pick **one**:
-
-### A. Backend proxy — key stays on the server (recommended for a shared key)
-
-The key is held server-side and never shipped to the browser. Run the included Node server instead of the static Python server:
+Higher-quality narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **server-side** by the included backend — users never enter or hold an API key. Run the Node server instead of the static Python server:
 
 ```bash
-cp .env.example .env      # then edit .env and paste your key (this file is gitignored)
+cp .env.example .env      # then edit .env and paste the key (this file is gitignored)
 npm start                 # or: GEMINI_API_KEY=your-key node server.js
 ```
 
-Open **http://localhost:8080/** and choose **Settings → Narration voice → Gemini AI voice** (leave the API key field blank). The browser calls `POST /api/tts`, and `server.js` calls Gemini using `GEMINI_API_KEY` from the environment.
+Open **http://localhost:8080/** and choose **Settings → Narration voice → Gemini AI voice**. The browser calls `POST /api/tts`, and `server.js` calls Gemini using `GEMINI_API_KEY` from the environment. The key is never sent to the browser.
 
-> GitHub Pages is static-only and cannot run this proxy. To use the backend in production, deploy `server.js` (or an equivalent `/api/tts` function) to a host that supports server code (e.g. a serverless function) and set `GEMINI_API_KEY` there as a secret.
+**Never commit the key.** Put it in `.env` (gitignored) or a host secret — not in the source.
 
-**Never commit your key.** Put it in `.env` (gitignored) or a host secret — not in the source.
-
-### B. Bring-your-own key — for plain static hosting (e.g. GitHub Pages)
-
-With no backend running, paste your own [Google AI Studio](https://aistudio.google.com/apikey) key in **Settings → Narration voice → Gemini AI voice**. It is stored only on your device (`localStorage`) and sent directly from your browser to Google. Small per-use cost on your Google account.
+> GitHub Pages is static-only and cannot run this proxy, so the Gemini voice only works where the backend runs. To use it in production, deploy `server.js` (or an equivalent `/api/tts` function) to a host that supports server code (e.g. a serverless function) and set `GEMINI_API_KEY` there as a secret. On plain static hosting the app falls back to the free offline **Device voice**.
