@@ -1,19 +1,38 @@
 {
+  "id": "https://azzabazza11.github.io/road-lore/",
   "name": "Road Lore",
   "short_name": "Road Lore",
-  "start_url": "./",
+  "start_url": "./?homescreen=1",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#14100c",
   "theme_color": "#14100c",
-  "description": "Travel companion that narrates local history and interesting places as you drive.",
+  "description": "Travel companion that narrates local history and interesting places as you drive. v1.0.2",
   "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "./icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
