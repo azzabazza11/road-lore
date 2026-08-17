@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Road Lore" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive." />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.0.2" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
@@ -81,6 +81,12 @@
       margin: 2px 0 0;
       color: var(--muted);
       font-size: 0.82rem;
+    }
+    .version-tag {
+      font-size: 0.72rem;
+      color: var(--soft);
+      letter-spacing: 0.06em;
+      font-weight: 600;
     }
     .icon-btn {
       width: var(--tap);
@@ -250,7 +256,9 @@
       color: var(--muted);
     }
     .settings input[type="number"],
-    .settings select {
+    .settings select,
+    .settings input[type="password"],
+    .settings input[type="text"] {
       min-height: 48px;
       border-radius: 12px;
       border: 1px solid var(--line);
@@ -258,6 +266,12 @@
       padding: 0 12px;
       color: var(--ink);
     }
+    .settings input[type="password"] {
+      font-family: ui-monospace, monospace;
+      font-size: 0.88rem;
+    }
+    .voice-panel { display: none; }
+    .voice-panel.active { display: block; }
     .row {
       display: flex;
       align-items: center;
@@ -296,9 +310,8 @@
     <div class="topbar">
       <div class="brand">
         <h1>Road Lore</h1>
-        <p>Local stories as you drive</p>
+        <p>Local stories as you drive · <span class="version-tag" id="appVersionHome">v—</span></p>
       </div>
-      <button class="icon-btn" id="btn-install" title="Install" aria-label="Install">↓</button>
       <button class="icon-btn" id="btnMute" title="Mute" aria-label="Mute">🔊</button>
       <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">⚙</button>
     </div>
@@ -351,9 +364,29 @@
         <input type="number" id="rate" min="0.7" max="1.4" step="0.05" />
       </label>
       <label>
-        Voice
-        <select id="voiceSelect"></select>
+        Narration voice
+        <select id="voiceEngine">
+          <option value="device">Device voice (free, offline)</option>
+          <option value="gemini">Gemini AI voice (needs API key)</option>
+        </select>
       </label>
+      <div id="deviceVoicePanel" class="voice-panel">
+        <label>
+          Device voice
+          <select id="voiceSelect"></select>
+        </label>
+      </div>
+      <div id="geminiVoicePanel" class="voice-panel">
+        <label>
+          Gemini API key
+          <input type="password" id="geminiApiKey" autocomplete="off" placeholder="Paste key from Google AI Studio" />
+        </label>
+        <label>
+          Gemini voice
+          <select id="geminiVoice"></select>
+        </label>
+        <p class="hint">Key stays on this phone only. Get one at <a class="wiki" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Uses model <code>gemini-2.5-flash-preview-tts</code>.</p>
+      </div>
       <div class="row">
         <span>Auto-narrate nearby lore</span>
         <button class="toggle on" id="autoToggle" type="button" aria-pressed="true"></button>
@@ -367,13 +400,16 @@
       <button class="btn danger" id="btnReset" style="width:100%;margin-top:8px">Forget heard places</button>
     </div>
     <div class="panel">
-      <p class="hint">Version 1.0.1 · Lore text from Wikipedia · Data stays on this phone</p>
+      <p class="hint"><span id="appVersionSettings">v—</span> · Lore text from Wikipedia · Data stays on this phone</p>
     </div>
   </div>
 
   <script>
+    const APP_VERSION = '1.0.2';
     const STORE_KEY = 'road-lore-v1';
     const WIKI = 'https://en.wikipedia.org/w/api.php';
+    const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+    const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr'];
     const LOOKUP_MIN_MS = 12000;
     const SAMPLE_MIN_MS = 1000;
 
@@ -385,6 +421,9 @@
         minGapKm: 4,
         rate: 1,
         voiceURI: '',
+        voiceEngine: 'device',
+        geminiApiKey: '',
+        geminiVoice: 'Kore',
         auto: true,
         wakeLock: true,
         muted: false
@@ -405,6 +444,9 @@
     let speaking = false;
     let voices = [];
     let lookupBusy = false;
+    let audioCtx = null;
+    let geminiSource = null;
+    let speakGen = 0;
 
     function loadState() {
       try {
@@ -419,6 +461,8 @@
           log: p.log || []
         };
         next.settings.radiusKm = Math.min(10, Math.max(2, Number(next.settings.radiusKm) || 10));
+        if (!['device', 'gemini'].includes(next.settings.voiceEngine)) next.settings.voiceEngine = 'device';
+        if (!GEMINI_VOICES.includes(next.settings.geminiVoice)) next.settings.geminiVoice = 'Kore';
         return next;
       } catch {
         return defaultState();
@@ -514,19 +558,104 @@
     }
 
     function stopSpeech() {
+      speakGen += 1;
       if ('speechSynthesis' in window) speechSynthesis.cancel();
+      if (geminiSource) {
+        try { geminiSource.stop(); } catch { /* ignore */ }
+        geminiSource = null;
+      }
       speaking = false;
     }
 
-    function speak(text, onEnd) {
-      if (!('speechSynthesis' in window)) {
-        setVoiceStatus('No speech on this device');
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) audioCtx = new Ctx();
+      }
+      return audioCtx;
+    }
+
+    function playPcm(pcmBytes) {
+      return new Promise((resolve, reject) => {
+        const ctx = getAudioCtx();
+        if (!ctx) {
+          reject(new Error('no audio'));
+          return;
+        }
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        const samples = pcmBytes.length / 2;
+        const buffer = ctx.createBuffer(1, samples, 24000);
+        const ch = buffer.getChannelData(0);
+        const view = new DataView(pcmBytes.buffer, pcmBytes.byteOffset, pcmBytes.byteLength);
+        for (let i = 0; i < samples; i++) ch[i] = view.getInt16(i * 2, true) / 32768;
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        geminiSource = src;
+        src.onended = () => {
+          if (geminiSource === src) geminiSource = null;
+          resolve();
+        };
+        src.onerror = () => reject(new Error('playback'));
+        src.start();
+      });
+    }
+
+    async function speakGemini(text, onEnd, gen) {
+      const key = (state.settings.geminiApiKey || '').trim();
+      if (!key) {
+        setVoiceStatus('Add Gemini API key in Settings');
         onEnd && onEnd(false);
         return;
       }
-      stopSpeech();
-      if (state.settings.muted) {
-        setVoiceStatus('Muted');
+      speaking = true;
+      setVoiceStatus('Generating AI voice…');
+      $('eyebrow').textContent = 'Now narrating';
+      $('placePill').classList.add('talk');
+      try {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key
+          },
+          body: JSON.stringify({
+            model: GEMINI_TTS_MODEL,
+            input: text,
+            response_format: { type: 'audio' },
+            generation_config: {
+              speech_config: [{ voice: state.settings.geminiVoice || 'Kore' }]
+            }
+          })
+        });
+        if (gen !== speakGen) return;
+        if (!res.ok) throw new Error('gemini ' + res.status);
+        const data = await res.json();
+        const b64 = data?.output_audio?.data;
+        if (!b64) throw new Error('no audio');
+        const bin = atob(b64);
+        const pcm = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) pcm[i] = bin.charCodeAt(i);
+        if (gen !== speakGen) return;
+        setVoiceStatus('Speaking…');
+        await playPcm(pcm);
+        if (gen !== speakGen) return;
+        speaking = false;
+        setVoiceStatus('Voice ready');
+        $('placePill').classList.remove('talk');
+        onEnd && onEnd(true);
+      } catch {
+        if (gen !== speakGen) return;
+        speaking = false;
+        setVoiceStatus('Gemini voice error');
+        $('placePill').classList.remove('talk');
+        onEnd && onEnd(false);
+      }
+    }
+
+    function speakDevice(text, onEnd, gen) {
+      if (!('speechSynthesis' in window)) {
+        setVoiceStatus('No speech on this device');
         onEnd && onEnd(false);
         return;
       }
@@ -536,24 +665,44 @@
       u.rate = state.settings.rate;
       u.pitch = 1;
       u.onstart = () => {
+        if (gen !== speakGen) return;
         speaking = true;
         setVoiceStatus('Speaking…');
         $('eyebrow').textContent = 'Now narrating';
         $('placePill').classList.add('talk');
       };
       u.onend = () => {
+        if (gen !== speakGen) return;
         speaking = false;
         setVoiceStatus('Voice ready');
         $('placePill').classList.remove('talk');
         onEnd && onEnd(true);
       };
       u.onerror = () => {
+        if (gen !== speakGen) return;
         speaking = false;
         setVoiceStatus('Voice error');
+        $('placePill').classList.remove('talk');
         onEnd && onEnd(false);
       };
-      // Chrome often drops speak() if it runs in the same turn as cancel()
-      setTimeout(() => speechSynthesis.speak(u), 60);
+      setTimeout(() => {
+        if (gen === speakGen) speechSynthesis.speak(u);
+      }, 60);
+    }
+
+    function speak(text, onEnd) {
+      stopSpeech();
+      if (state.settings.muted) {
+        setVoiceStatus('Muted');
+        onEnd && onEnd(false);
+        return;
+      }
+      const gen = speakGen;
+      if (state.settings.voiceEngine === 'gemini') {
+        speakGemini(text, onEnd, gen);
+        return;
+      }
+      speakDevice(text, onEnd, gen);
     }
 
     async function wikiGeosearch(lat, lng, radiusM) {
@@ -674,11 +823,38 @@
       }).join('');
     }
 
+    function renderVersion() {
+      const label = 'v' + APP_VERSION;
+      $('appVersionHome').textContent = label;
+      $('appVersionSettings').textContent = label;
+    }
+
+    function updateVoicePanels() {
+      const gemini = state.settings.voiceEngine === 'gemini';
+      $('deviceVoicePanel').classList.toggle('active', !gemini);
+      $('geminiVoicePanel').classList.toggle('active', gemini);
+      $('rate').closest('label').style.display = gemini ? 'none' : '';
+    }
+
+    function populateGeminiVoices() {
+      const sel = $('geminiVoice');
+      const cur = state.settings.geminiVoice || 'Kore';
+      sel.innerHTML = GEMINI_VOICES.map(v =>
+        `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
+      ).join('');
+      sel.value = cur;
+    }
+
     function renderSettings() {
       $('radiusKm').value = state.settings.radiusKm;
       $('minGapKm').value = state.settings.minGapKm;
       $('rate').value = state.settings.rate;
+      $('voiceEngine').value = state.settings.voiceEngine || 'device';
+      $('geminiApiKey').value = state.settings.geminiApiKey || '';
       populateVoices();
+      populateGeminiVoices();
+      updateVoicePanels();
+      renderVersion();
       $('autoToggle').classList.toggle('on', state.settings.auto);
       $('wakeToggle').classList.toggle('on', state.settings.wakeLock);
       $('btnMute').textContent = state.settings.muted ? '🔇' : '🔊';
@@ -765,7 +941,8 @@
         return;
       }
       // Unlock speech on user gesture
-      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      stopSpeech();
+      if (getAudioCtx()?.state === 'suspended') getAudioCtx().resume().catch(() => {});
       tripOn = true;
       tripMeters = 0;
       lastStoryAtPos = null;
@@ -874,6 +1051,22 @@
       saveState();
     });
 
+    $('voiceEngine').addEventListener('change', () => {
+      state.settings.voiceEngine = $('voiceEngine').value;
+      saveState();
+      renderSettings();
+    });
+
+    $('geminiApiKey').addEventListener('change', () => {
+      state.settings.geminiApiKey = $('geminiApiKey').value.trim();
+      saveState();
+    });
+
+    $('geminiVoice').addEventListener('change', () => {
+      state.settings.geminiVoice = $('geminiVoice').value;
+      saveState();
+    });
+
     $('autoToggle').addEventListener('click', () => {
       state.settings.auto = !state.settings.auto;
       saveState();
@@ -909,13 +1102,12 @@
     }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js?v=1.0.1').catch(() => {});
+      navigator.serviceWorker.register('./service-worker.js?v=' + APP_VERSION).catch(() => {});
     }
 
+    renderVersion();
     renderSettings();
     renderLog();
   </script>
-  <script>window.PWA_INSTALL = { slug: 'road-lore', name: 'Road Lore' };</script>
-  <script src="./install.js?v=1"></script>
 </body>
 </html>

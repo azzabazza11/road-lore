@@ -33,4 +33,8 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.0.1**
+Version: **1.0.2**
+
+## Gemini AI voice (optional)
+
+In **Settings → Narration voice → Gemini AI voice**, paste a [Google AI Studio](https://aistudio.google.com/apikey) API key. The key is stored only on your phone. Uses `gemini-2.5-flash-preview-tts` for natural narration (small per-use cost on your Google account).

@@ -1,12 +1,11 @@
-const CACHE = 'road-lore-v1.0.1';
+const CACHE = 'road-lore-v1.0.2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',
-  './icon-512.png',
-  './install.js'
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -31,6 +30,7 @@ self.addEventListener('fetch', event => {
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('/');
 
+  // Always try network first for HTML so fixes reach installed PWAs quickly.
   if (isNav) {
     event.respondWith(
       fetch(event.request).then(resp => {
