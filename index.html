@@ -339,7 +339,7 @@
     <div class="panel settings">
       <label>
         Search radius (km)
-        <input type="number" id="radiusKm" min="2" max="40" step="1" />
+        <input type="number" id="radiusKm" min="2" max="10" step="1" />
       </label>
       <label>
         Min km between stories
@@ -361,12 +361,12 @@
         <span>Keep screen awake</span>
         <button class="toggle on" id="wakeToggle" type="button" aria-pressed="true"></button>
       </div>
-      <p class="hint">Uses Wikipedia near your GPS for short introductions. Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
+      <p class="hint">Uses Wikipedia near your GPS for short introductions (Wikipedia’s nearby search maxes out at 10 km). Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
       <button class="btn" id="btnTestVoice" style="width:100%;margin-top:8px">Test voice</button>
       <button class="btn danger" id="btnReset" style="width:100%;margin-top:8px">Forget heard places</button>
     </div>
     <div class="panel">
-      <p class="hint">Version 1.0.0 · Lore text from Wikipedia · Data stays on this phone</p>
+      <p class="hint">Version 1.0.1 · Lore text from Wikipedia · Data stays on this phone</p>
     </div>
   </div>
 
@@ -380,7 +380,7 @@
 
     const defaultState = () => ({
       settings: {
-        radiusKm: 12,
+        radiusKm: 10,
         minGapKm: 4,
         rate: 1,
         voiceURI: '',
@@ -410,13 +410,15 @@
         const raw = localStorage.getItem(STORE_KEY);
         if (!raw) return defaultState();
         const p = JSON.parse(raw);
-        return {
+        const next = {
           ...defaultState(),
           ...p,
           settings: { ...defaultState().settings, ...(p.settings || {}) },
           heard: p.heard || {},
           log: p.log || []
         };
+        next.settings.radiusKm = Math.min(10, Math.max(2, Number(next.settings.radiusKm) || 10));
+        return next;
       } catch {
         return defaultState();
       }
@@ -465,6 +467,12 @@
       return (m / 1000).toFixed(1);
     }
 
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
     function cleanExtract(text) {
       if (!text) return '';
       return text
@@ -478,7 +486,8 @@
       if (t.length <= maxChars) return t;
       const slice = t.slice(0, maxChars);
       const end = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '));
-      return (end > 180 ? slice.slice(0, end + 1) : slice.trim()) + '';
+      if (end > 180) return slice.slice(0, end + 1).trim();
+      return slice.trim() + '…';
     }
 
     function pickVoice() {
@@ -498,13 +507,13 @@
       const sel = $('voiceSelect');
       const cur = state.settings.voiceURI;
       sel.innerHTML = voices.map(v =>
-        `<option value="${v.voiceURI.replace(/"/g, '')}">${v.name} (${v.lang})</option>`
+        `<option value="${escapeHtml(v.voiceURI)}">${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`
       ).join('') || '<option value="">Default</option>';
       if (cur) sel.value = cur;
     }
 
     function stopSpeech() {
-      speechSynthesis.cancel();
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
       speaking = false;
     }
 
@@ -542,7 +551,8 @@
         setVoiceStatus('Voice error');
         onEnd && onEnd(false);
       };
-      speechSynthesis.speak(u);
+      // Chrome often drops speak() if it runs in the same turn as cancel()
+      setTimeout(() => speechSynthesis.speak(u), 60);
     }
 
     async function wikiGeosearch(lat, lng, radiusM) {
@@ -550,7 +560,7 @@
       url.searchParams.set('action', 'query');
       url.searchParams.set('list', 'geosearch');
       url.searchParams.set('gscoord', lat + '|' + lng);
-      url.searchParams.set('gsradius', String(Math.min(10000, Math.max(1000, Math.round(radiusM))));
+      url.searchParams.set('gsradius', String(Math.min(10000, Math.max(1000, Math.round(radiusM)))));
       url.searchParams.set('gslimit', '12');
       url.searchParams.set('format', 'json');
       url.searchParams.set('origin', '*');
@@ -658,8 +668,8 @@
       }
       box.innerHTML = state.log.slice(0, 12).map(item => {
         const when = new Date(item.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `<div class="log-item"><b>${item.title}</b><span>${when} · ${(item.dist / 1000).toFixed(1)} km — ${item.extract}</span>
-          <div style="margin-top:6px"><a class="wiki" href="${item.url}" target="_blank" rel="noopener">Wikipedia</a></div></div>`;
+        return `<div class="log-item"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(when)} · ${(item.dist / 1000).toFixed(1)} km — ${escapeHtml(item.extract)}</span>
+          <div style="margin-top:6px"><a class="wiki" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Wikipedia</a></div></div>`;
       }).join('');
     }
 
@@ -685,8 +695,9 @@
       if (!canTellAnother(pos)) return;
       const now = Date.now();
       if (now - lastLookupAt < LOOKUP_MIN_MS) return;
-      // Prefer looking up while actually moving, but allow slow/crawling town speeds
-      if (kmh < 3 && tripMeters > 50) return;
+      // After the first story, don't auto-chat while parked. GPS jitter
+      // can inflate trip distance, so don't use tripMeters for this gate.
+      if (kmh < 3 && lastStoryAtPos) return;
 
       lastLookupAt = now;
       lookupBusy = true;
@@ -762,13 +773,16 @@
       $('btnTrip').classList.remove('primary');
       $('btnTrip').classList.add('danger');
       $('eyebrow').textContent = 'Trip started';
+      $('btnSkip').disabled = false;
       setGps('Acquiring GPS…', 'warn');
       requestWakeLock();
-      watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
+      const geoOpts = {
         enableHighAccuracy: true,
         maximumAge: 1500,
         timeout: 15000
-      });
+      };
+      navigator.geolocation.getCurrentPosition(onPosition, onGeoError, geoOpts);
+      watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
     }
 
     function endTrip() {
@@ -782,6 +796,7 @@
       $('btnTrip').textContent = 'Start trip';
       $('btnTrip').classList.add('primary');
       $('btnTrip').classList.remove('danger');
+      $('btnSkip').disabled = true;
       setGps('GPS idle', '');
       setVoiceStatus(state.settings.muted ? 'Muted' : 'Voice ready');
       $('eyebrow').textContent = 'Trip ended';
@@ -794,10 +809,14 @@
     });
 
     $('btnSkip').addEventListener('click', async () => {
-      if (!lastPos || lookupBusy) return;
+      if (lookupBusy) return;
       stopSpeech();
       lastStoryAtPos = null;
       lastLookupAt = 0;
+      if (!lastPos) {
+        setGps('Need GPS first…', 'warn');
+        return;
+      }
       lookupBusy = true;
       setGps('Looking up lore…', 'warn');
       try {
@@ -845,7 +864,7 @@
         renderSettings();
       });
     }
-    bindNum('radiusKm', 'radiusKm', 2, 40);
+    bindNum('radiusKm', 'radiusKm', 2, 10);
     bindNum('minGapKm', 'minGapKm', 0.5, 30);
     bindNum('rate', 'rate', 0.7, 1.4);
 
