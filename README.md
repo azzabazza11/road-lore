@@ -19,6 +19,7 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 
 - **Start trip** — watches GPS while you move
 - **Nearby lore** — Wikipedia places within ~10 km (API limit)
+- **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search), great where Wikipedia is thin
 - **Narration** — short spoken intro via the device voice (mute / skip / replay)
 - **Spacing** — won’t chatter every corner; min distance between stories
 - **Log** — what you’ve heard this trip, with Wikipedia links
@@ -33,7 +34,7 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.0.2**
+Version: **1.1.0**
 
 ## Gemini AI voice (optional)
 
@@ -49,3 +50,13 @@ Open **http://localhost:8080/** and choose **Settings → Narration voice → Ge
 **Never commit the key.** Put it in `.env` (gitignored) or a host secret — not in the source.
 
 > GitHub Pages is static-only and cannot run this proxy, so the Gemini voice only works where the backend runs. To use it in production, deploy `server.js` (or an equivalent `/api/tts` function) to a host that supports server code (e.g. a serverless function) and set `GEMINI_API_KEY` there as a secret. On plain static hosting the app falls back to the free offline **Device voice**.
+
+## AI local-history stories (optional)
+
+With the backend running, **Settings → Lore source** offers:
+
+- **Auto** — Wikipedia first, then AI to fill gaps (default)
+- **Wikipedia only**
+- **AI stories** — always generate from the wider area
+
+AI stories are produced by `POST /api/lore` in `server.js`, which calls Gemini (`gemini-3.6-flash` by default, override with `GEMINI_TEXT_MODEL`) with **Google Search grounding** so the narration is fact-based and comes with source links (shown in the "Along the way" log). This is ideal for rural/regional routes where Wikipedia has little geotagged coverage. The **Don't repeat stories** toggle asks the model to avoid recently-heard topics and suppresses repeat Wikipedia hits. Like the Gemini voice, this needs the backend (not plain static hosting) and bills per use on your Google account.

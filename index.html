@@ -352,6 +352,19 @@
     </div>
     <div class="panel settings">
       <label>
+        Lore source
+        <select id="loreSource">
+          <option value="auto">Auto — Wikipedia, then AI</option>
+          <option value="wikipedia">Wikipedia only</option>
+          <option value="ai">AI stories (Gemini + web search)</option>
+        </select>
+      </label>
+      <p class="hint" style="margin:-6px 0 12px">AI stories search the wider area for local history and read it aloud — great where Wikipedia is thin. Needs the backend running.</p>
+      <div class="row">
+        <span>Don’t repeat stories</span>
+        <button class="toggle on" id="noRepeatToggle" type="button" aria-pressed="true"></button>
+      </div>
+      <label>
         Search radius (km)
         <input type="number" id="radiusKm" min="2" max="10" step="1" />
       </label>
@@ -401,7 +414,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.0.2';
+    const APP_VERSION = '1.1.0';
     const STORE_KEY = 'road-lore-v1';
     const WIKI = 'https://en.wikipedia.org/w/api.php';
     const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
@@ -419,6 +432,8 @@
         voiceURI: '',
         voiceEngine: 'device',
         geminiVoice: 'Kore',
+        loreSource: 'auto',
+        noRepeat: true,
         auto: true,
         wakeLock: true,
         muted: false
@@ -458,6 +473,8 @@
         next.settings.radiusKm = Math.min(10, Math.max(2, Number(next.settings.radiusKm) || 10));
         if (!['device', 'gemini'].includes(next.settings.voiceEngine)) next.settings.voiceEngine = 'device';
         if (!GEMINI_VOICES.includes(next.settings.geminiVoice)) next.settings.geminiVoice = 'Kore';
+        if (!['auto', 'wikipedia', 'ai'].includes(next.settings.loreSource)) next.settings.loreSource = 'auto';
+        next.settings.noRepeat = next.settings.noRepeat !== false;
         return next;
       } catch {
         return defaultState();
@@ -733,7 +750,7 @@
 
     function scoreCandidate(item, lat, lng, kmh) {
       const heard = state.heard[String(item.pageid)];
-      if (heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) return -1;
+      if (state.settings.noRepeat !== false && heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) return -1;
       let score = 1000 - item.dist;
       const title = item.title || '';
       if (/list of|disambiguation|railway station|highway|route \d|state highway/i.test(title)) score -= 400;
@@ -775,13 +792,61 @@
       return null;
     }
 
+    function recentTitles(limit = 8) {
+      const seen = [];
+      for (const item of state.log) {
+        if (item.title && !seen.includes(item.title)) seen.push(item.title);
+        if (seen.length >= limit) break;
+      }
+      return seen;
+    }
+
+    async function findStoryAI(lat, lng) {
+      const body = { lat, lng };
+      if (state.settings.noRepeat !== false) body.avoid = recentTitles(8);
+      const res = await fetch('api/lore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('lore ' + res.status);
+      const data = await res.json();
+      if (!data || !data.text) return null;
+      const title = data.title || 'Local lore';
+      const sources = Array.isArray(data.sources) ? data.sources : [];
+      return {
+        pageid: 'ai:' + title.toLowerCase().replace(/\s+/g, ' ').trim(),
+        title,
+        extract: data.text,
+        dist: null,
+        sources,
+        ai: true,
+        url: sources[0] ? sources[0].uri : 'https://www.google.com/search?q=' + encodeURIComponent(title)
+      };
+    }
+
+    // Fetch a story according to the chosen lore source. "auto" tries Wikipedia
+    // first (fast, precise) and falls back to grounded AI when nothing suitable
+    // is nearby — ideal where Wikipedia coverage is sparse.
+    async function getStory(lat, lng, kmh) {
+      const src = state.settings.loreSource || 'auto';
+      if (src === 'ai') return await findStoryAI(lat, lng);
+      if (src === 'wikipedia') return await findStory(lat, lng, kmh);
+      let story = null;
+      try {
+        story = await findStory(lat, lng, kmh);
+      } catch { /* fall through to AI */ }
+      if (!story) story = await findStoryAI(lat, lng);
+      return story;
+    }
+
     function presentStory(story, { speakIt = true } = {}) {
       currentStory = story;
-      $('eyebrow').textContent = speakIt ? 'Found nearby' : 'Paused on';
+      $('eyebrow').textContent = story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on');
       $('topic').textContent = story.title;
       $('excerpt').textContent = clipForSpeech(story.extract, 700);
       $('placeVal').textContent = story.title;
-      $('distVal').textContent = (story.dist / 1000).toFixed(1);
+      $('distVal').textContent = story.dist == null ? '—' : (story.dist / 1000).toFixed(1);
       $('placePill').classList.add('live');
       $('btnSkip').disabled = false;
       $('btnReplay').disabled = false;
@@ -792,7 +857,9 @@
         title: story.title,
         extract: clipForSpeech(story.extract, 160),
         url: story.url,
-        dist: story.dist
+        dist: story.dist,
+        ai: !!story.ai,
+        sources: Array.isArray(story.sources) ? story.sources.slice(0, 3) : []
       });
       if (state.log.length > 40) state.log.length = 40;
       saveState();
@@ -812,8 +879,19 @@
       }
       box.innerHTML = state.log.slice(0, 12).map(item => {
         const when = new Date(item.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `<div class="log-item"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(when)} · ${(item.dist / 1000).toFixed(1)} km — ${escapeHtml(item.extract)}</span>
-          <div style="margin-top:6px"><a class="wiki" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Wikipedia</a></div></div>`;
+        const dist = item.dist == null ? '' : ` · ${(item.dist / 1000).toFixed(1)} km`;
+        let links;
+        if (item.ai) {
+          const srcs = Array.isArray(item.sources) ? item.sources : [];
+          links = srcs.length
+            ? srcs.map(s => `<a class="wiki" href="${escapeHtml(s.uri)}" target="_blank" rel="noopener">${escapeHtml(s.title || 'source')}</a>`).join(' · ')
+            : `<a class="wiki" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Search</a>`;
+          links = '<span style="opacity:.7">AI · </span>' + links;
+        } else {
+          links = `<a class="wiki" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Wikipedia</a>`;
+        }
+        return `<div class="log-item"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(when)}${dist} — ${escapeHtml(item.extract)}</span>
+          <div style="margin-top:6px">${links}</div></div>`;
       }).join('');
     }
 
@@ -844,10 +922,12 @@
       $('minGapKm').value = state.settings.minGapKm;
       $('rate').value = state.settings.rate;
       $('voiceEngine').value = state.settings.voiceEngine || 'device';
+      $('loreSource').value = state.settings.loreSource || 'auto';
       populateVoices();
       populateGeminiVoices();
       updateVoicePanels();
       renderVersion();
+      $('noRepeatToggle').classList.toggle('on', state.settings.noRepeat !== false);
       $('autoToggle').classList.toggle('on', state.settings.auto);
       $('wakeToggle').classList.toggle('on', state.settings.wakeLock);
       $('btnMute').textContent = state.settings.muted ? '🔇' : '🔊';
@@ -873,7 +953,7 @@
       lookupBusy = true;
       setGps('Looking up lore…', 'warn');
       try {
-        const story = await findStory(pos.lat, pos.lng, kmh);
+        const story = await getStory(pos.lat, pos.lng, kmh);
         if (story) {
           lastStoryAtPos = { lat: pos.lat, lng: pos.lng };
           presentStory(story, { speakIt: true });
@@ -991,7 +1071,7 @@
       lookupBusy = true;
       setGps('Looking up lore…', 'warn');
       try {
-        const story = await findStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
+        const story = await getStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
         if (story) {
           lastStoryAtPos = { lat: lastPos.lat, lng: lastPos.lng };
           presentStory(story, { speakIt: true });
@@ -1046,6 +1126,17 @@
 
     $('voiceEngine').addEventListener('change', () => {
       state.settings.voiceEngine = $('voiceEngine').value;
+      saveState();
+      renderSettings();
+    });
+
+    $('loreSource').addEventListener('change', () => {
+      state.settings.loreSource = $('loreSource').value;
+      saveState();
+    });
+
+    $('noRepeatToggle').addEventListener('click', () => {
+      state.settings.noRepeat = !(state.settings.noRepeat !== false);
       saveState();
       renderSettings();
     });
