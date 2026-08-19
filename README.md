@@ -27,6 +27,7 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - Light / dark / auto (follows day and night from GPS)
 - **More** — flesh out the current find (Wikipedia rest, then AI)
 - Last five stories kept on-device, including Gemini audio so replay does not regenerate
+- First-run welcome, then a short spoken note and a story from where you are
 - **Share QR** — copy the live link, support on Ko-fi, or open More apps
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
@@ -38,7 +39,7 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.2.0**
+Version: **1.2.1**
 
 ## Gemini AI voice (optional)
 

@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Road Lore" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.2.0" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.2.1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
@@ -430,16 +430,81 @@
       width: 100%; margin-top: 8px; border: 0; border-radius: 10px; padding: 12px 8px;
       font-weight: 700; font-size: 0.92rem; background: #ff5e5b; color: #fff;
     }
-    #qrHub {
-      display: block; width: 100%; margin-top: 8px; border-radius: 10px; padding: 12px 8px;
-      font-weight: 700; font-size: 0.88rem; text-align: center; text-decoration: none;
-      background: color-mix(in srgb, var(--soft) 14%, transparent); color: var(--soft);
-      border: 1px solid color-mix(in srgb, var(--soft) 28%, var(--line));
+    .intro {
+      max-width: 440px;
+      margin: 0 auto;
+      padding-bottom: 8px;
     }
+    .intro-mark {
+      color: var(--soft);
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin: 8px 0 8px;
+    }
+    .intro h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(1.8rem, 7vw, 2.35rem);
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
+      line-height: 1.15;
+    }
+    .intro .lede {
+      font-size: 1.05rem;
+      line-height: 1.5;
+      color: var(--muted);
+      margin: 0 0 16px;
+    }
+    .intro h2 {
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin: 18px 0 8px;
+      color: var(--ink);
+    }
+    .intro ol {
+      margin: 0 0 8px;
+      padding-left: 1.15rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .intro ol li { margin-bottom: 6px; }
+    .intro-note {
+      background: var(--chip);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      margin: 16px 0 18px;
+    }
+    .intro-note strong { color: var(--ink); font-weight: 700; }
   </style>
 </head>
 <body>
-  <div id="home" class="screen active">
+  <div id="intro" class="screen">
+    <div class="intro">
+      <div class="intro-mark">Welcome</div>
+      <h1>Road Lore</h1>
+      <p class="lede">A passenger companion. Nearby places, read aloud as a short local sketch — not a map, not a navigator, and not something to operate while driving.</p>
+      <h2>What to expect</h2>
+      <ol>
+        <li>Allow location when asked.</li>
+        <li>A first story can begin where you are, even before you move.</li>
+        <li>Skip, Replay, and More are for the passenger. Stories start often; you can ease the pace later.</li>
+      </ol>
+      <div class="intro-note">
+        <strong>A word on the telling.</strong>
+        Narration may use a generated voice, drawing on local history and the open web. Names are sometimes mis-said, and like any AI-assisted sketch, a detail may be off. Take it as a companionable introduction, not a finished history.
+      </div>
+      <button class="btn primary" id="btnIntroStart" style="width:100%">Start trip</button>
+    </div>
+  </div>
+
+  <div id="home" class="screen">
     <div class="topbar">
       <div class="brand">
         <h1>Road Lore</h1>
@@ -587,7 +652,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.2.0';
+    const APP_VERSION = '1.2.1';
     const SUPPORT_URL = 'https://ko-fi.com/aaroncallinan';
     const STORE_KEY = 'road-lore-v1';
     const WIKI = 'https://en.wikipedia.org/w/api.php';
@@ -639,7 +704,8 @@
         wakeLock: true,
         muted: false,
         appearance: 'auto',
-        freqPrompted: false
+        freqPrompted: false,
+        seenIntro: false
       },
       heard: {},
       log: []
@@ -663,6 +729,14 @@
     let tripStoryCount = 0;
     let moreBusy = false;
     let audioDbPromise = null;
+    let pendingIntroLore = false;
+    let introPlaying = false;
+
+    const INTRO_SPEECH =
+      'Road Lore is a passenger companion, not a navigator. ' +
+      'I will share short local stories drawn from nearby history and the web. ' +
+      'The voice is generated, so names may be mispronounced, and a detail may occasionally be imperfect. ' +
+      'Let us begin here.';
 
     function loadState() {
       try {
@@ -684,6 +758,11 @@
         next.settings.minGapKm = snapFreq(next.settings.minGapKm);
         if (!['auto', 'light', 'dark'].includes(next.settings.appearance)) next.settings.appearance = 'auto';
         next.settings.freqPrompted = !!next.settings.freqPrompted;
+        if (next.settings.seenIntro == null) {
+          next.settings.seenIntro = !!(next.log && next.log.length);
+        } else {
+          next.settings.seenIntro = !!next.settings.seenIntro;
+        }
         if (next.log.length > LOG_KEEP) next.log.length = LOG_KEEP;
         return next;
       } catch {
@@ -732,7 +811,7 @@
     }
 
     function showScreen(name) {
-      ['home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
+      ['intro', 'home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
     }
 
     function haversine(a, b) {
@@ -1386,7 +1465,7 @@
     }
 
     async function maybeLookup(pos, kmh) {
-      if (!tripOn || lookupBusy || speaking) return;
+      if (!tripOn || lookupBusy || speaking || introPlaying) return;
       if (!state.settings.auto) return;
       if (!canTellAnother(pos)) return;
       const now = Date.now();
@@ -1446,6 +1525,12 @@
       setGps(typeof accuracy === 'number' && accuracy > 80 ? 'GPS weak' : 'GPS live',
         typeof accuracy === 'number' && accuracy > 80 ? 'warn' : 'on');
 
+      if (pendingIntroLore) {
+        pendingIntroLore = false;
+        playIntroThenLore();
+        return;
+      }
+
       if (now - lastSampleAt < SAMPLE_MIN_MS) return;
       lastSampleAt = now;
       maybeLookup({ lat, lng }, kmh);
@@ -1455,7 +1540,8 @@
       setGps(err.code === 1 ? 'Location denied' : 'GPS error', 'bad');
     }
 
-    function startTrip() {
+    function startTrip(opts) {
+      const fromIntro = !!(opts && opts.fromIntro);
       if (!('geolocation' in navigator)) {
         setGps('No geolocation', 'bad');
         return;
@@ -1468,10 +1554,11 @@
       tripStoryCount = 0;
       lastStoryAtPos = null;
       lastLookupAt = 0;
+      pendingIntroLore = fromIntro;
       $('btnTrip').textContent = 'End trip';
       $('btnTrip').classList.remove('primary');
       $('btnTrip').classList.add('danger');
-      $('eyebrow').textContent = 'Trip started';
+      $('eyebrow').textContent = fromIntro ? 'A word before we begin' : 'Trip started';
       $('btnSkip').disabled = false;
       setGps('Acquiring GPS…', 'warn');
       requestWakeLock();
@@ -1484,7 +1571,42 @@
       watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
     }
 
+    async function lookupNearby(reason) {
+      if (!lastPos || lookupBusy) return;
+      lookupBusy = true;
+      setGps(reason || 'Looking up lore…', 'warn');
+      try {
+        const story = await getStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
+        if (story) {
+          lastStoryAtPos = { lat: lastPos.lat, lng: lastPos.lng };
+          presentStory(story, { speakIt: true });
+          setGps('GPS live', 'on');
+        } else {
+          setGps('GPS live · no new lore', 'on');
+        }
+      } catch {
+        setGps('Lookup failed · check network', 'bad');
+      } finally {
+        lookupBusy = false;
+      }
+    }
+
+    function playIntroThenLore() {
+      const voice = state.settings.geminiVoice || 'Kore';
+      introPlaying = true;
+      $('eyebrow').textContent = 'A word before we begin';
+      $('topic').textContent = 'Road Lore';
+      $('excerpt').textContent =
+        'A passenger companion drawing on local history and the open web. Generated voice; names may be mis-said, and a detail may occasionally be imperfect.';
+      speak(INTRO_SPEECH, () => {
+        introPlaying = false;
+        lookupNearby('Looking up lore…');
+      }, audioKey('intro', 'disclaimer', voice));
+    }
+
     function endTrip() {
+      pendingIntroLore = false;
+      introPlaying = false;
       tripOn = false;
       if (watchId != null) {
         navigator.geolocation.clearWatch(watchId);
@@ -1508,8 +1630,15 @@
       else startTrip();
     });
 
+    $('btnIntroStart').addEventListener('click', () => {
+      state.settings.seenIntro = true;
+      saveState();
+      showScreen('home');
+      startTrip({ fromIntro: true });
+    });
+
     $('btnSkip').addEventListener('click', async () => {
-      if (lookupBusy) return;
+      if (lookupBusy || introPlaying) return;
       stopSpeech();
       lastStoryAtPos = null;
       lastLookupAt = 0;
@@ -1517,22 +1646,7 @@
         setGps('Need GPS first…', 'warn');
         return;
       }
-      lookupBusy = true;
-      setGps('Looking up lore…', 'warn');
-      try {
-        const story = await getStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
-        if (story) {
-          lastStoryAtPos = { lat: lastPos.lat, lng: lastPos.lng };
-          presentStory(story, { speakIt: true });
-          setGps('GPS live', 'on');
-        } else {
-          setGps('GPS live · no new lore', 'on');
-        }
-      } catch {
-        setGps('Lookup failed · check network', 'bad');
-      } finally {
-        lookupBusy = false;
-      }
+      lookupNearby('Looking up lore…');
     });
 
     $('btnReplay').addEventListener('click', () => {
@@ -1791,6 +1905,7 @@
     renderVersion();
     renderSettings();
     renderLog();
+    showScreen(state.settings.seenIntro ? 'home' : 'intro');
   </script>
 </body>
 </html>
