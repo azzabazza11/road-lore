@@ -4,6 +4,8 @@ Phone-first **travel companion** that looks up nearby places and narrates a shor
 
 **Live app (install this):** **https://road-lore-528520900686.australia-southeast1.run.app/**
 
+![Scan to open Road Lore](share-qr.png)
+
 That URL is **Google Cloud Run**. It serves the PWA and the Gemini voice / AI-story APIs from one origin. GitHub holds the source; merging to `main` is what should update the live app (see deploy below). The old Pages address [github.io/road-lore](https://azzabazza11.github.io/road-lore/) redirects to Cloud Run.
 
 ## Local

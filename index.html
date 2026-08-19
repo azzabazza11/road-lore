@@ -269,6 +269,15 @@
       font-size: 0.84rem;
       line-height: 1.4;
     }
+    .qr-panel { text-align: center; }
+    .qr-panel img {
+      width: 220px;
+      height: 220px;
+      border-radius: 12px;
+      background: #fff;
+      display: block;
+      margin: 4px auto 10px;
+    }
     .log {
       display: grid;
       gap: 10px;
@@ -565,6 +574,12 @@
       <span><span class="dot" id="gpsDot"></span> <span id="gpsStatus">GPS idle</span></span>
       <span id="voiceStatus">Voice ready</span>
       <span id="tripStatus">Trip 0.0 km</span>
+    </div>
+
+    <div class="panel qr-panel">
+      <h2>Scan to open</h2>
+      <img src="./share-qr.png" width="220" height="220" alt="QR code for Road Lore">
+      <p class="hint" id="homeQrUrl"></p>
     </div>
 
     <div class="panel">
@@ -1538,6 +1553,8 @@
       const label = 'v' + APP_VERSION;
       $('appVersionHome').textContent = label;
       $('appVersionSettings').textContent = label;
+      const qrLabel = $('homeQrUrl');
+      if (qrLabel) qrLabel.textContent = LIVE_ORIGIN + '/';
     }
 
     function parseVer(s) {
@@ -2006,7 +2023,7 @@
       if (label) label.textContent = url;
       if (img) {
         img.alt = 'QR for ' + url;
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=' + encodeURIComponent(url);
+        img.src = './share-qr.png';
       }
       $('qrModal').classList.add('open');
     }
