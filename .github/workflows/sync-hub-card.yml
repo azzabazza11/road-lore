@@ -1,10 +1,7 @@
-# Automatically keeps the Passenger Tales card on https://azzabazza11.github.io/apps/
+# Keeps the Passenger Tales card on https://azzabazza11.github.io/apps/
 # up to date whenever main changes version.json.
 #
-# Prerequisites (one-time):
-#   Add a repo secret HUB_TOKEN — a classic PAT with repo scope, owned by azzabazza11.
-#
-# Until HUB_TOKEN is set the job exits cleanly (skip, no failure).
+# Prerequisite: repo secret HUB_TOKEN — a classic PAT with repo scope.
 
 name: Sync Passenger Tales hub card
 
@@ -29,7 +26,7 @@ jobs:
             echo "HUB_TOKEN not set — skipping hub sync."
             exit 0
           fi
-          echo "HUB_TOKEN found, continuing."
+          echo "HUB_TOKEN found."
 
       - uses: actions/checkout@v4
 
@@ -37,41 +34,41 @@ jobs:
         id: ver
         run: echo "version=$(jq -r .version version.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Clone hub and patch card
+      - name: Sync hub card
         env:
           HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
+          set -euo pipefail
+
+          # actions/checkout injects a global credential helper that overrides
+          # any token we embed in git URLs. Remove it, then set our PAT via
+          # git's url.<>.insteadOf so every fetch/push to github.com uses it.
+          git config --global --unset-all "http.https://github.com/.extraheader" || true
+          git config --global credential.helper ""
+          git config --global "url.https://${HUB_TOKEN}@github.com/.insteadOf" "https://github.com/"
+
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
-          # Embed token in clone URL so push also uses it
-          git clone --depth 1 \
-            "https://${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git" \
-            hub
-
-          # Make sure push also uses the token (not ssh or cached creds)
+          git clone --depth 1 https://github.com/azzabazza11/azzabazza11.github.io.git hub
           cd hub
-          git remote set-url origin \
-            "https://${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git"
 
           BRANCH="passenger-tales-v${VERSION}"
-          # Delete remote branch if it already exists (idempotent re-run)
           git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
 
           python3 ../scripts/sync-hub-road-lore.py .
 
           if git diff --quiet && git diff --cached --quiet; then
-            echo "Hub already up to date — nothing to commit."
+            echo "Hub already up to date."
             exit 0
           fi
 
           git add apps/index.html apps/service-worker.js
-          git commit -m "Passenger Tales → v${VERSION} on the hub card."
+          git commit -m "Passenger Tales v${VERSION}"
           git push origin "$BRANCH"
 
-          # Open a PR (fails silently if one already exists)
           curl -s -X POST \
             -H "Authorization: token ${HUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
@@ -81,4 +78,4 @@ jobs:
               \"body\": \"Auto-synced from road-lore version.json.\",
               \"head\": \"${BRANCH}\",
               \"base\": \"main\"
-            }" | jq -r 'if .html_url then .html_url else .errors[0].message end'
+            }" | jq -r 'if .html_url then .html_url else .errors[0].message // "PR may already exist" end'
