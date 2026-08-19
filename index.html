@@ -258,15 +258,6 @@
       font-size: 0.84rem;
       line-height: 1.4;
     }
-    .qr-panel { text-align: center; }
-    .qr-panel img {
-      width: 220px;
-      height: 220px;
-      border-radius: 12px;
-      background: #fff;
-      display: block;
-      margin: 4px auto 10px;
-    }
     .log {
       display: grid;
       gap: 10px;
@@ -567,12 +558,6 @@
 
     <button class="btn" id="btnInstall" type="button" style="width:100%;margin-bottom:12px">Install on phone</button>
 
-    <div class="panel qr-panel">
-      <h2>Scan to open</h2>
-      <img src="./share-qr.png" width="220" height="220" alt="QR code for Road Lore">
-      <p class="hint" id="homeQrUrl"></p>
-    </div>
-
     <div class="panel">
       <h2>Along the way</h2>
       <div class="log" id="heardLog"><div class="empty">Nothing narrated yet.</div></div>
@@ -650,7 +635,7 @@
         <button class="toggle on" id="wakeToggle" type="button" aria-pressed="true"></button>
       </div>
       <p class="hint">Uses Wikipedia near your GPS for short introductions (Wikipedia’s nearby search maxes out at 10 km). Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
-      <p class="hint">Install from <strong>Chrome</strong> (Android) or <strong>Safari → Add to Home Screen</strong> (iPhone). Use the GitHub Pages link from the QR. Cloud Run is the Gemini server and stays on an old build until deploy credentials are set.</p>
+      <p class="hint">Install from <strong>Chrome</strong> (Android) or <strong>Safari → Add to Home Screen</strong> (iPhone). Share QR is under Share.</p>
       <button class="btn" id="btnInstallSettings" type="button" style="width:100%;margin-top:8px">Install on phone</button>
       <button class="btn" id="btnTestVoice" style="width:100%;margin-top:8px">Test voice</button>
       <button class="btn" id="shareBtn" style="width:100%;margin-top:8px">Share QR</button>
@@ -801,6 +786,7 @@
     let updateReloading = false;
     let updateFromSW = false;
     let deferredInstall = null;
+    let backendOk = false;
 
     const INTRO_SPEECH =
       'Road Lore is a passenger companion, not a navigator. ' +
@@ -857,6 +843,7 @@
     }
 
     function trialIsActive() {
+      if (!backendOk) return false;
       if (state.trialActive === false) return false;
       if (state.trialEnds && Date.now() > state.trialEnds) return false;
       return true;
@@ -896,15 +883,19 @@
         if (data.deviceId && !state.deviceId) state.deviceId = data.deviceId;
         if (Number.isFinite(data.trialEnds)) state.trialEnds = data.trialEnds;
         state.trialActive = data.trialActive !== false;
+        backendOk = true;
         saveState();
       } catch {
-        // Static hosting has no session; generated voice is unavailable there anyway.
+        backendOk = false;
       }
       applyTrialGates();
       renderSettings();
     }
 
     function trialHintText() {
+      if (!backendOk) {
+        return 'This copy is on GitHub Pages, so the free on-device voice is used. Generated Gemini voice runs on Cloud Run once that server is up to date.';
+      }
       if (!state.trialEnds) {
         return 'Generated voice is complimentary for the first week where the service is available. After that, the on-device voice stays free.';
       }
@@ -1208,7 +1199,11 @@
           if (gen !== speakGen) return;
           if (pcm) await putClip(key, pcm);
         }
-        if (!pcm) throw new Error('no audio');
+        if (!pcm) {
+          setVoiceStatus('Using device voice');
+          speakDevice(text, onEnd, gen);
+          return;
+        }
         setVoiceStatus('Speaking…');
         await playPcm(pcm);
         if (gen !== speakGen) return;
@@ -1218,10 +1213,7 @@
         onEnd && onEnd(true);
       } catch {
         if (gen !== speakGen) return;
-        speaking = false;
-        setVoiceStatus('Gemini voice error');
-        $('placePill').classList.remove('talk');
-        onEnd && onEnd(false);
+        speakDevice(text, onEnd, gen);
       }
     }
 
@@ -1557,8 +1549,6 @@
       const label = 'v' + APP_VERSION;
       $('appVersionHome').textContent = label;
       $('appVersionSettings').textContent = label;
-      const qrLabel = $('homeQrUrl');
-      if (qrLabel) qrLabel.textContent = LIVE_ORIGIN + '/';
     }
 
     function isStandaloneApp() {
@@ -1669,7 +1659,7 @@
     }
 
     function updateVoicePanels() {
-      const gemini = state.settings.voiceEngine === 'gemini';
+      const gemini = state.settings.voiceEngine === 'gemini' && trialIsActive();
       $('deviceVoicePanel').classList.toggle('active', !gemini);
       $('geminiVoicePanel').classList.toggle('active', gemini);
       $('rate').closest('label').style.display = gemini ? 'none' : '';
@@ -1693,9 +1683,13 @@
       populateGeminiVoices();
       updateVoicePanels();
       renderVersion();
-      const trialOver = !trialIsActive() && !!state.trialEnds;
-      $('voiceEngine').querySelector('option[value="gemini"]').disabled = trialOver;
-      $('loreSource').querySelector('option[value="ai"]').disabled = trialOver;
+      const geminiOff = !trialIsActive();
+      $('voiceEngine').querySelector('option[value="gemini"]').disabled = geminiOff;
+      $('loreSource').querySelector('option[value="ai"]').disabled = geminiOff;
+      if (geminiOff) {
+        $('voiceEngine').value = 'device';
+        if ($('loreSource').value === 'ai') $('loreSource').value = 'wikipedia';
+      }
       const hint = $('trialHint');
       if (hint) hint.textContent = trialHintText();
       $('noRepeatToggle').classList.toggle('on', state.settings.noRepeat !== false);
