@@ -1,0 +1,7 @@
+{
+  "name": "road-lore",
+  "repositoryDependencies": [
+    "github.com/azzabazza11/azzabazza11.github.io"
+  ],
+  "install": "bash .cursor/clone-hub.sh"
+}
