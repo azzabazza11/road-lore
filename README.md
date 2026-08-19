@@ -31,6 +31,7 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - One-week complimentary generated voice (Cloud Run), then free on-device voice
 - Installed app asks before updating when a newer version is on the server
 - **Share QR** — copy the live link, support on Ko-fi, or open More apps
+- Install from Chrome on Android, or Safari Add to Home Screen on iPhone
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
 
