@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.4.0" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.4.1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -97,6 +97,7 @@
     }
     button, input, select { font: inherit; color: inherit; }
     button { cursor: pointer; border: 0; background: none; }
+    [hidden] { display: none !important; }
 
     .topbar {
       display: flex;
@@ -571,6 +572,7 @@
       <div class="brand"><h1>Settings</h1></div>
     </div>
     <div class="panel settings">
+      <button class="btn primary" id="btnInstallSettings" type="button" style="width:100%;margin-bottom:12px">Install on phone</button>
       <label>
         Lore source
         <select id="loreSource">
@@ -636,8 +638,6 @@
         <button class="toggle on" id="wakeToggle" type="button" aria-pressed="true"></button>
       </div>
       <p class="hint">Uses Wikipedia near your GPS for short introductions (Wikipedia’s nearby search maxes out at 10 km). Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
-      <p class="hint">Install from <strong>Chrome</strong> (Android) or <strong>Safari → Add to Home Screen</strong> (iPhone). Share QR is under Share.</p>
-      <button class="btn" id="btnInstallSettings" type="button" style="width:100%;margin-top:8px">Install on phone</button>
       <button class="btn" id="btnTestVoice" style="width:100%;margin-top:8px">Test voice</button>
       <button class="btn" id="shareBtn" style="width:100%;margin-top:8px">Share QR</button>
       <button class="btn danger" id="btnReset" style="width:100%;margin-top:8px">Forget heard places</button>
@@ -680,7 +680,7 @@
       <p id="installCopy">Add Passenger Tales to your home screen so it opens like an app — not a browser tab.</p>
       <div class="sheet-stack">
         <button type="button" class="primary" id="installNow">Install</button>
-        <button type="button" id="installClose">Close</button>
+        <button type="button" id="installClose">Not now</button>
       </div>
     </div>
   </div>
@@ -697,7 +697,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.4.0';
+    const APP_VERSION = '1.4.1';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -767,7 +767,8 @@
         muted: false,
         appearance: 'auto',
         freqPrompted: false,
-        seenIntro: false
+        seenIntro: false,
+        installPrompted: false
       },
       heard: {},
       log: [],
@@ -802,6 +803,7 @@
     let updateReloading = false;
     let updateFromSW = false;
     let deferredInstall = null;
+    let installOfferPending = false;
     let backendOk = false;
 
     const INTRO_SPEECH =
@@ -838,6 +840,7 @@
         next.settings.minGapKm = snapFreq(next.settings.minGapKm);
         if (!['auto', 'light', 'dark'].includes(next.settings.appearance)) next.settings.appearance = 'auto';
         next.settings.freqPrompted = !!next.settings.freqPrompted;
+        next.settings.installPrompted = !!next.settings.installPrompted;
         if (next.settings.seenIntro == null) {
           next.settings.seenIntro = !!(next.log && next.log.length);
         } else {
@@ -1582,6 +1585,18 @@
       return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
     }
 
+    function installModalCopy(firstVisit) {
+      if (deferredInstall) {
+        return firstVisit
+          ? 'Install Passenger Tales on your home screen — full screen, no browser bar. Tap Install below.'
+          : 'Add Passenger Tales to your home screen so it opens like an app — not a browser tab.';
+      }
+      if (isIosDevice()) {
+        return 'On iPhone / iPad: tap Share (the square with an arrow), then Add to Home Screen.';
+      }
+      return 'On Android, use Chrome. Tap the menu (⋮), then Install app or Add to Home screen.';
+    }
+
     function syncInstallUi() {
       const show = !isStandaloneApp();
       ['btnInstall', 'btnInstallSettings'].forEach(id => {
@@ -1589,11 +1604,15 @@
         if (el) el.hidden = !show;
       });
       const now = $('installNow');
-      if (now) now.hidden = !deferredInstall;
+      if (now) {
+        now.hidden = !deferredInstall;
+        now.textContent = 'Install';
+      }
     }
 
     function closeInstall() {
       $('installModal').classList.remove('open');
+      installOfferPending = false;
       maybeShowUpdate();
     }
 
@@ -1608,17 +1627,38 @@
       return true;
     }
 
-    function offerInstall() {
+    function offerInstall(opts = {}) {
       if (isStandaloneApp()) return;
-      if (deferredInstall) {
+      const forceModal = !!opts.modal;
+      if (deferredInstall && !forceModal) {
         runNativeInstall();
         return;
       }
-      $('installCopy').textContent = isIosDevice()
-        ? 'On iPhone / iPad: tap Share (the square with an arrow), then Add to Home Screen.'
-        : 'On Android, open this page in Chrome. Tap the menu (⋮), then Install app or Add to Home screen. Samsung Internet can warn about an older Android package — use Chrome.';
+      $('installCopy').textContent = installModalCopy(!!opts.firstVisit);
       syncInstallUi();
       $('installModal').classList.add('open');
+      if (opts.firstVisit && !state.settings.installPrompted) {
+        state.settings.installPrompted = true;
+        saveState();
+      }
+    }
+
+    function maybeOfferInstallFirstVisit() {
+      if (isStandaloneApp() || state.settings.installPrompted) return;
+      installOfferPending = true;
+      offerInstall({ modal: true, firstVisit: true });
+    }
+
+    function onInstallPromptReady() {
+      syncInstallUi();
+      if (installOfferPending && !state.settings.installPrompted && !isStandaloneApp()) {
+        offerInstall({ modal: true, firstVisit: true });
+        installOfferPending = false;
+        return;
+      }
+      if ($('installModal') && $('installModal').classList.contains('open') && deferredInstall) {
+        $('installCopy').textContent = installModalCopy(true);
+      }
     }
 
     function parseVer(s) {
@@ -1925,6 +1965,7 @@
       saveState();
       showScreen('home');
       startTrip({ fromIntro: true });
+      setTimeout(maybeOfferInstallFirstVisit, 500);
     });
 
     $('btnSkip').addEventListener('click', async () => {
@@ -2167,7 +2208,7 @@
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
       deferredInstall = e;
-      syncInstallUi();
+      onInstallPromptReady();
     });
     window.addEventListener('appinstalled', () => {
       deferredInstall = null;
@@ -2305,8 +2346,11 @@
     showScreen(state.settings.seenIntro ? 'home' : 'intro');
     ensureDeviceId();
     refreshTrial();
+    if (state.settings.seenIntro && !state.settings.installPrompted && !isStandaloneApp()) {
+      setTimeout(maybeOfferInstallFirstVisit, 900);
+    }
     try {
-      if (new URLSearchParams(location.search).get('install') === '1') offerInstall();
+      if (new URLSearchParams(location.search).get('install') === '1') offerInstall({ modal: true });
     } catch {}
   </script>
 </body>
