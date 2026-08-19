@@ -1,0 +1,9 @@
+# Never ship secrets or local cruft into the image
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+*.log
+.DS_Store

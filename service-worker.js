@@ -1,4 +1,4 @@
-const CACHE = 'road-lore-v1.0.3';
+const CACHE = 'road-lore-v1.1.0';
 const ASSETS = [
   './',
   './index.html',

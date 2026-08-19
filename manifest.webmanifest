@@ -8,7 +8,7 @@
   "orientation": "any",
   "background_color": "#14100c",
   "theme_color": "#14100c",
-  "description": "Travel companion that narrates local history and interesting places as you drive. v1.0.3",
+  "description": "Travel companion that narrates local history and interesting places as you drive. v1.1.0",
   "icons": [
     {
       "src": "./icon-192.png",
