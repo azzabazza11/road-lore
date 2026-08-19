@@ -415,6 +415,9 @@ function serveStatic(req, res) {
     if (base === 'version.json' || base === 'service-worker.js') {
       headers['Cache-Control'] = 'no-store';
     }
+    if (base === 'version.json') {
+      headers['Access-Control-Allow-Origin'] = '*';
+    }
     res.writeHead(200, headers);
     res.end(buf);
   });
