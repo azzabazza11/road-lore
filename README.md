@@ -23,6 +23,7 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - **Spacing** — won’t chatter every corner; min distance between stories
 - **Log** — what you’ve heard this trip, with Wikipedia links
 - Screen wake lock while travelling (optional)
+- **Share QR** — copy the live link, support on Ko-fi, or open More apps
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
 
@@ -33,7 +34,7 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.0.2**
+Version: **1.0.3**
 
 ## Gemini AI voice (optional)
 
