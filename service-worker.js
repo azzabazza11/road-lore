@@ -8,7 +8,8 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './icon-180.png',
-  './icon-maskable-512.png'
+  './icon-maskable-512.png',
+  './share-qr.png'
 ];
 
 self.addEventListener('install', event => {
