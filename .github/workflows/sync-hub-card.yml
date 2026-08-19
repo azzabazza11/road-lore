@@ -41,9 +41,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # actions/checkout injects a LOCAL credential helper (extraheader) that
-          # overrides any token for github.com operations. Unset it globally and
-          # inject our PAT via url.insteadOf so all git operations use it.
+          # actions/checkout injects a credential helper (extraheader) that overrides
+          # all github.com auth. Unset it and inject the PAT via url.insteadOf.
           git config --global --unset-all "http.https://github.com/.extraheader" || true
           git config --global credential.helper ""
           git config --global "url.https://${HUB_TOKEN}@github.com/.insteadOf" "https://github.com/"
