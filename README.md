@@ -1,14 +1,16 @@
-# Road Lore
+# Passenger Tales
 
-Phone-first **travel companion** that looks up nearby places and narrates a short local intro as you drive.
+Phone-first **passenger companion** that looks up nearby places and narrates a short local intro as you drive.
 
 **Live app (install this):** **https://azzabazza11.github.io/road-lore/**
 
-![Scan to open Road Lore](share-qr.png)
+![Scan to open Passenger Tales](share-qr.png)
+
+The install URL still uses the `road-lore` path from the original repo name. The app title on your home screen is **Passenger Tales**.
 
 That is **GitHub Pages**. Merging to `main` updates it in a minute — this is the URL the QR opens.
 
-**Cloud Run** (`https://road-lore-528520900686.australia-southeast1.run.app/`) is the Gemini voice server. It is **not** updated on merge until GitHub secret `GCP_SA_KEY` is set (the Action then deploys). Until that happens, Cloud Run can sit on an old build (it was v1.1.0 when the QR first pointed there). Do not send people to Cloud Run for the current UI.
+**Cloud Run** (`https://road-lore-528520900686.australia-southeast1.run.app/`) is the Gemini voice server. Redeploy after merges until GitHub secret `GCP_SA_KEY` is set (then the Action deploys on merge).
 
 ## Local
 
@@ -23,7 +25,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 ## Features
 
 - **Start trip** — watches GPS while you move
-- **Nearby lore** — Wikipedia places within ~10 km (API limit)
+- **Nearby stories** — Wikipedia places within ~10 km (API limit)
 - **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search)
 - **Narration** — Gemini voice by default on new installs (device voice after the complimentary week, or if you choose it)
 - **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
@@ -43,26 +45,26 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. Chrome menu → **Install app** / **Add to Home screen**
 
-If you previously installed from Cloud Run (the `.run.app` URL), that copy can stay on v1.1.0. Remove that icon and install again from GitHub Pages.
+If you previously installed an old **Road Lore** icon, remove it and install again from GitHub Pages.
 
-Samsung Internet may still warn that the WebAPK targets an older Android API. That warning is the browser’s installer, not Road Lore. Use Chrome.
+Samsung Internet may still warn that the WebAPK targets an older Android API. That warning is the browser’s installer, not Passenger Tales. Use Chrome.
 
 ## iPhone / iPad
 
 1. Open the **Pages** URL in **Safari**
 2. Allow **location** when asked
 3. Share → **Add to Home Screen** → Add
-4. Open **Road Lore** from the home screen
+4. Open **Passenger Tales** from the home screen
 
-Version: **1.3.6**
+Version: **1.4.0**
 
-The **Road Lore** tile on https://azzabazza11.github.io/apps/ is in repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io) (`apps/index.html`). Bump that card (or run `python3 scripts/sync-hub-road-lore.py`) on every version jump.
+The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
 Installed copies stay on the version they have until you tap **Update**. Settings and the story log are unchanged.
 
 ## Complimentary week, then free voice
 
-Web apps cannot read a phone’s MAC address. Road Lore keeps a private random device id on the phone and a signed 7-day trial token from `POST /api/session`. Generated voice and AI stories work during that week. After it ends, the **on-device voice** and Wikipedia nearby lore continue.
+Web apps cannot read a phone’s MAC address. Passenger Tales keeps a private random device id on the phone and a signed 7-day trial token from `POST /api/session`. Generated voice and AI stories work during that week. After it ends, the **on-device voice** and Wikipedia nearby lore continue.
 
 ## Gemini AI voice
 
@@ -82,7 +84,7 @@ Until the Action has credentials, a merge does **not** update Cloud Run. Add thi
 # Project that already hosts the service (the number in the .run.app URL).
 gcloud config set project YOUR_PROJECT_ID
 
-gcloud iam service-accounts create github-deploy --display-name="GitHub deploy Road Lore"
+gcloud iam service-accounts create github-deploy --display-name="GitHub deploy Passenger Tales"
 
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
   --member="serviceAccount:github-deploy@YOUR_PROJECT_ID.iam.gserviceaccount.com" \

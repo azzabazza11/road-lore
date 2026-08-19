@@ -1,4 +1,4 @@
-// Road Lore dev/backend server.
+// Passenger Tales dev/backend server.
 //
 // Serves the static PWA AND a small proxy endpoint (POST /api/tts) that calls
 // Google's Gemini text-to-speech on the server side. The Gemini API key is read
@@ -455,7 +455,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   const hasKey = Boolean(process.env.GEMINI_API_KEY);
-  console.log('Road Lore server on http://localhost:' + PORT);
+  console.log('Passenger Tales server on http://localhost:' + PORT);
   console.log('Gemini key: ' + (hasKey ? 'loaded from env' : 'MISSING (set GEMINI_API_KEY to enable /api/tts and /api/lore)'));
   console.log('Models: tts=' + GEMINI_MODEL + '  text=' + GEMINI_TEXT_MODEL);
   console.log('Limits: ' + RATE_MAX + ' req / ' + Math.round(RATE_WINDOW_MS / 1000) + 's per IP, ' + DAILY_CAP + ' / day (per instance)');

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clone the apps hub so agents can update the Road Lore card on version jumps.
+# Clone the apps hub so agents can update the Passenger Tales card on version jumps.
 # Token write access still needs the Cursor GitHub App to include this repo,
 # and a multi-repo Cloud Agent environment to open hub PRs as first-class work.
 set -u

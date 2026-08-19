@@ -1,4 +1,4 @@
-# Road Lore container for Google Cloud Run (or any container host).
+# Passenger Tales container for Google Cloud Run (or any container host).
 # The app has no dependencies, so this just runs the Node server which serves
 # the static PWA plus the /api/tts and /api/lore proxy endpoints.
 #

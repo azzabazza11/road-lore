@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Point the apps-hub Road Lore card at this repo's version.json.
+"""Point the apps-hub Passenger Tales card at this repo's version.json.
 
 Updates azzabazza11.github.io/apps/index.html:
-  - PROJECTS entry id 'road-lore' version + versionUrl
+  - PROJECTS entry id 'road-lore' — title, version, versionUrl
   - fetches version.json at runtime so the badge follows Pages deploys
   - bumps HUB_VER / service-worker cache when the file changes
 
@@ -120,6 +120,7 @@ def patch_index(html: str) -> str:
     if not block:
         raise SystemExit("Could not find PROJECTS entry id: 'road-lore' in apps/index.html")
     body = block.group(0)
+    body = re.sub(r"(\btitle:\s*')[^']+'", r"\1Passenger Tales'", body, count=1)
     if re.search(r"\bversion:\s*'", body):
         body = re.sub(r"(\bversion:\s*')[^']+'", rf"\g<1>{VERSION}'", body, count=1)
     else:
@@ -153,14 +154,14 @@ def main() -> None:
     original = index_path.read_text()
     updated = patch_index(original)
     if updated == original:
-        print(f"Hub already in sync at {hub} (Road Lore v{VERSION})")
+        print(f"Hub already in sync at {hub} (Passenger Tales v{VERSION})")
         return
     updated, hub_ver = bump_hub_ver(updated, sw_path.read_text() if sw_path.is_file() else None)
     if hub_ver and sw_path.is_file():
         sw_path.write_text(bump_sw(sw_path.read_text(), hub_ver))
         print(f"Bumped hub cache to v{hub_ver}")
     index_path.write_text(updated)
-    print(f"Updated Road Lore card to v{VERSION} in {index_path}")
+    print(f"Updated Passenger Tales hub card to v{VERSION} in {index_path}")
     print("Commit and push in that checkout after the Cursor GitHub App can write the hub.")
 
 
