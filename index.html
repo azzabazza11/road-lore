@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.4.1" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.4.2" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -233,6 +233,36 @@
       font-size: 0.88rem;
       margin-bottom: 14px;
     }
+    #installBanner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: linear-gradient(135deg, #1e2a18, #1a2510);
+      border: 1px solid #3a5228;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+    }
+    #installBanner p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: #c8e6a0;
+      line-height: 1.35;
+    }
+    #installBanner strong { color: #d4f0a8; font-weight: 700; }
+    #installBannerBtn {
+      flex-shrink: 0;
+      background: linear-gradient(180deg, #a8d870, #72b83a);
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-weight: 800;
+      font-size: 0.9rem;
+      color: #0e1a06;
+      white-space: nowrap;
+    }
+    #installBannerBtn:active { transform: scale(0.97); }
     .dot {
       width: 8px; height: 8px; border-radius: 50%;
       background: var(--line); display: inline-block;
@@ -558,6 +588,11 @@
       <span id="tripStatus">Trip 0.0 km</span>
     </div>
 
+    <div id="installBanner" hidden>
+      <p><strong>Install Passenger Tales</strong><br>Add to your home screen for the full app experience.</p>
+      <button type="button" id="installBannerBtn">Install</button>
+    </div>
+
     <button class="btn" id="btnInstall" type="button" style="width:100%;margin-bottom:12px">Install on phone</button>
 
     <div class="panel">
@@ -697,7 +732,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.4.1';
+    const APP_VERSION = '1.4.2';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1598,16 +1633,19 @@
     }
 
     function syncInstallUi() {
-      const show = !isStandaloneApp();
+      const installed = isStandaloneApp();
       ['btnInstall', 'btnInstallSettings'].forEach(id => {
         const el = $(id);
-        if (el) el.hidden = !show;
+        if (el) el.hidden = installed;
       });
       const now = $('installNow');
       if (now) {
         now.hidden = !deferredInstall;
         now.textContent = 'Install';
       }
+      // Prominent banner: only visible when Chrome has a native prompt queued
+      const banner = $('installBanner');
+      if (banner) banner.hidden = installed || !deferredInstall;
     }
 
     function closeInstall() {
@@ -2201,6 +2239,7 @@
       });
     });
     $('installNow').addEventListener('click', () => runNativeInstall());
+    $('installBannerBtn').addEventListener('click', () => runNativeInstall());
     $('installClose').addEventListener('click', closeInstall);
     $('installModal').addEventListener('click', e => {
       if (e.target === $('installModal')) closeInstall();

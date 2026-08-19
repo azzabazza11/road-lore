@@ -4,7 +4,7 @@
   "short_name": "Passenger Tales",
   "lang": "en",
   "dir": "ltr",
-  "description": "Passenger companion that narrates local history and interesting places as you drive. v1.4.1",
+  "description": "Passenger companion that narrates local history and interesting places as you drive. v1.4.2",
   "start_url": "./index.html?homescreen=1",
   "scope": "./",
   "display": "standalone",
