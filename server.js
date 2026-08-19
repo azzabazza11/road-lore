@@ -107,7 +107,10 @@ function allowRequest(req, res) {
   if (today !== dayKey) { dayKey = today; dayCount = 0; ipHits.clear(); }
 
   if (dayCount >= DAILY_CAP) {
-    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '3600' });
+    res.writeHead(429, securityHeaders({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Retry-After': '3600'
+    }));
     res.end(JSON.stringify({ error: 'Daily limit reached. Please try again tomorrow.' }));
     return false;
   }
@@ -120,7 +123,10 @@ function allowRequest(req, res) {
 
   if (hits.length >= RATE_MAX) {
     const retry = Math.max(1, Math.ceil((hits[0] + RATE_WINDOW_MS - now) / 1000));
-    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': String(retry) });
+    res.writeHead(429, securityHeaders({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Retry-After': String(retry)
+    }));
     res.end(JSON.stringify({ error: 'Too many requests — slow down a moment.' }));
     return false;
   }
@@ -148,8 +154,17 @@ const MIME = {
   '.css': 'text/css; charset=utf-8'
 };
 
+function securityHeaders(extra) {
+  return Object.assign({
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'geolocation=(self), microphone=(), camera=(), payment=(), usb=()'
+  }, extra);
+}
+
 function sendJson(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(code, securityHeaders({ 'Content-Type': 'application/json; charset=utf-8' }));
   res.end(JSON.stringify(obj));
 }
 
@@ -381,19 +396,22 @@ function serveStatic(req, res) {
   if (urlPath === '/') urlPath = '/index.html';
   const filePath = path.join(ROOT, path.normalize(urlPath));
   if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.writeHead(403, securityHeaders({ 'Content-Type': 'text/plain' }));
     res.end('Forbidden');
     return;
   }
   fs.readFile(filePath, (err, buf) => {
     if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.writeHead(404, securityHeaders({ 'Content-Type': 'text/plain' }));
       res.end('Not found');
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
+    const headers = securityHeaders({ 'Content-Type': MIME[ext] || 'application/octet-stream' });
     const base = path.basename(filePath);
+    if (base === 'manifest.json' || ext === '.webmanifest') {
+      headers['Content-Type'] = 'application/manifest+json; charset=utf-8';
+    }
     if (base === 'version.json' || base === 'service-worker.js') {
       headers['Cache-Control'] = 'no-store';
     }
@@ -408,7 +426,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && routePath === '/api/tts') return handleTts(req, res);
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
   if (req.method === 'GET') return serveStatic(req, res);
-  res.writeHead(405, { 'Content-Type': 'text/plain' });
+  res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }));
   res.end('Method not allowed');
 });
 

@@ -31,17 +31,29 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - One-week complimentary generated voice (Cloud Run), then free on-device voice
 - Installed app asks before updating when a newer version is on the server
 - **Share QR** — copy the live link, support on Ko-fi, or open More apps
+- Install from Chrome on Android, or Safari Add to Home Screen on iPhone
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
 
 ## Android
 
-1. Open the Pages URL in **Chrome**
+1. Open the Pages URL in **Chrome** (not Samsung Internet)
 2. Allow **location**
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
-4. **Install** / Add to Home screen
+4. Chrome menu → **Install app** / **Add to Home screen**
 
-Version: **1.3.1**
+Install from **Chrome**. Chrome mints a current Android WebAPK. Samsung Internet and some other browsers still wrap the PWA as a package aimed at older Android APIs, which is when Play Protect shows *this app was built for an older version of Android* / *does not include the latest privacy protections*. That warning is the browser’s installer, not Road Lore. The site itself is HTTPS, with a current web app manifest, maskable icon, and (on Cloud Run) standard security headers.
+
+## iPhone / iPad
+
+1. Open the Pages URL in **Safari** (Chrome on iOS cannot install to the home screen)
+2. Allow **location** when asked
+3. Share → **Add to Home Screen** → Add
+4. Open **Road Lore** from the home screen (standalone, no Safari chrome)
+
+Safari ignores most of the web app manifest for the icon and splash; those come from `apple-touch-icon` and `apple-touch-startup-image`. Keep the app on the home screen so GPS and speech keep working in the background of the trip.
+
+Version: **1.3.2**
 
 Installed copies stay on the version they have until you tap **Update** on the in-app prompt. They keep working with older builds; settings and the story log are unchanged.
 

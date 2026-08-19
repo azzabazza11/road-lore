@@ -1,11 +1,14 @@
-const CACHE = 'road-lore-v1.3.1';
+const CACHE = 'road-lore-v1.3.2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './manifest.json',
   './icon.svg',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './icon-180.png',
+  './icon-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
