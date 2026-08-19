@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05050c">
+  <meta name="description" content="A growing collection of free web apps — creative tools, sports trackers, builder helpers, and more. No accounts, no ads.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Apps">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Aaron's Apps — Web tools &amp; experiments</title>
+  <style>
+    *, *::before, *::after { margin: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }l
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+    body {
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #d0d6e0;
+      background: #05050c;
+      overflow-x: hidden;
+    }
+    #bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .wrap {
+      position: relative; z-index: 1;
+      max-width: 1080px; margin: 0 auto;
+      padding: calc(20px + env(safe-area-inset-top, 0)) 20px calc(48px + env(safe-area-inset-bottom, 0));
+    }
+
+    /* Header */
+    header { text-align: center; padding: 36px 0 28px; }
+    .logo-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 12px; }
+    .logo {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: rgba(8, 10, 18, 0.7);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: grid; place-items: center;
+      box-shadow: 0 0 32px rgba(68,255,170,0.12);
+    }
+    .logo svg { width: 36px; height: 36px; }
+    h1 {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 700; letter-spacing: -0.02em; color: #fff;
+    }
+    .tagline {
+      font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+      color: #8a93a3; max-width: 520px; margin: 0 auto; line-height: 1.55;
+    }
+    .footer-actions button, .footer-actions a.btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 999px; padding: 11px 18px;
+      font: 650 13px system-ui, sans-serif; text-decoration: none;
+      cursor: pointer; border: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .footer-actions button:active, .footer-actions a.btn:active { transform: scale(0.97); }
+    #btnShare { background: rgba(127,212,255,0.18); color: #cfefff; border: 1px solid rgba(127,212,255,0.35); }
+    #btnShare:hover { background: rgba(127,212,255,0.28); }
+    #btnInstall {
+      background: rgba(68,255,170,0.16); color: #44ffaa;
+      border: 1px solid rgba(68,255,170,0.38);
+    }
+    #btnInstall:hover { background: rgba(68,255,170,0.26); }
+    #btnInstall[hidden] { display: none !important; }
+    #btnKofi { background: #ff5e5b; color: #fff; }
+    #btnKofi:hover { box-shadow: 0 4px 20px rgba(255,94,91,0.35); }
+    .footer-actions {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+      margin: 20px 0 14px;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      margin-bottom: 24px;
+      background: rgba(8, 10, 18, 0.72);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 14px 16px;
+      backdrop-filter: blur(10px);
+    }
+    .search-wrap { flex: 1 1 200px; position: relative; }
+    .search-wrap svg {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; color: #667; pointer-events: none;
+    }
+    #search {
+      width: 100%; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04); color: #e8eef8;
+      border-radius: 10px; padding: 11px 12px 11px 36px;
+      font: 500 14px system-ui, sans-serif; outline: none;
+    }
+    #search:focus { border-color: rgba(127,212,255,0.45); box-shadow: 0 0 0 3px rgba(127,212,255,0.12); }
+    #search::placeholder { color: #667; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+    .filter {
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05); color: #8a93a3;
+      border-radius: 999px; padding: 8px 14px;
+      font: 650 11px system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+    }
+    .filter.on {
+      color: #062218; background: #44ffaa; border-color: #6dffc0;
+      box-shadow: 0 0 0 1px rgba(68,255,170,0.25), 0 0 16px rgba(68,255,170,0.22);
+    }
+    .filter[data-platform]:not(.on):hover { border-color: rgba(127,212,255,0.35); color: #cfefff; }
+
+    .stats { width: 100%; font-size: 12px; color: #667; padding-top: 2px; }
+    .stats span { color: #7fd4ff; font-weight: 600; }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      position: relative;
+      background: rgba(8, 10, 18, 0.82);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 20px;
+      backdrop-filter: blur(8px);
+      display: flex; flex-direction: column; gap: 12px;
+      transition: border-color .2s, transform .2s, box-shadow .2s;
+      animation: cardIn .4s ease both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: none; }
+    }
+    .card:hover { border-color: rgba(255,255,255,0.16); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+    .card.hidden { display: none; }
+    .card.soon { opacity: 0.72; }
+    .card.soon:hover { transform: none; }
+
+    .card-top { display: flex; align-items: flex-start; gap: 14px; }
+    .card-icon {
+      width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+      display: grid; place-items: center; font-size: 22px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .card-meta { flex: 1; min-width: 0; }
+    .card-cat {
+      font: 650 10px system-ui, sans-serif; text-transform: uppercase;
+      letter-spacing: 0.12em; color: #7fd4ff; margin-bottom: 4px;
+    }
+    .card h2 { font-size: 1.15rem; font-weight: 650; color: #fff; line-height: 1.25; }
+    .card p { font-size: 13px; line-height: 1.55; color: #8a93a3; }
+
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+    .badge {
+      font: 600 10px system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 4px 9px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05); color: #889;
+    }
+    .badge.desktop { border-color: rgba(127,212,255,0.3); color: #7fd4ff; background: rgba(127,212,255,0.1); }
+    .badge.android { border-color: rgba(68,255,170,0.3); color: #44ffaa; background: rgba(68,255,170,0.08); }
+    .badge.ios { border-color: rgba(255,180,220,0.3); color: #ffb4dc; background: rgba(255,180,220,0.08); }
+    .badge.soon { border-color: rgba(255,200,80,0.3); color: #ffc850; background: rgba(255,200,80,0.08); }
+    .badge.version {
+      text-transform: none; letter-spacing: 0.04em;
+      border-color: rgba(255,255,255,0.16); color: #9aa3b2; background: rgba(255,255,255,0.06);
+    }
+
+    .card-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 4px; }
+    .card-links a, .card-links span.disabled {
+      flex: 1 1 auto; text-align: center; text-decoration: none;
+      border-radius: 10px; padding: 11px 14px;
+      font: 650 13px system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, transform .1s;
+    }
+    .card-links a { color: #062218; background: var(--accent, #44ffaa); }
+    .card-links a:hover { filter: brightness(1.08); }
+    .card-links a:active { transform: scale(0.98); }
+    .card-links a.secondary {
+      color: #cfefff; background: rgba(127,212,255,0.14);
+      border: 1px solid rgba(127,212,255,0.3);
+    }
+    .card-links span.disabled {
+      color: #667; background: rgba(255,255,255,0.04);
+      border: 1px dashed rgba(255,255,255,0.12); cursor: default;
+    }
+    .device-hint {
+      font-size: 11px; color: #667; margin: -6px 0 4px;
+    }
+    .device-hint strong { color: #7fd4ff; font-weight: 600; }
+
+    .empty {
+      grid-column: 1 / -1; text-align: center; padding: 48px 20px;
+      color: #667; font-size: 14px;
+    }
+    .empty strong { display: block; color: #8a93a3; font-size: 16px; margin-bottom: 8px; }
+
+    footer {
+      margin-top: 48px; text-align: center; font-size: 12px; color: #556;
+      line-height: 1.7; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    footer a { color: #7fd4ff; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    #toast {
+      position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0));
+      transform: translateX(-50%) translateY(120%);
+      z-index: 60; max-width: min(92vw, 360px);
+      background: rgba(16, 20, 30, 0.96); color: #e8eef8;
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+      padding: 12px 16px; font: 500 13px system-ui, sans-serif;
+      text-align: center; pointer-events: none;
+      transition: transform .25s ease;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Share modal */
+    #qrModal {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,0.72); align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #qrModal.open { display: flex; }
+    #qrCard {
+      background: #10141e; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 18px 18px 14px; text-align: center;
+      max-width: 300px; width: 100%; color: #d0d6e0;
+    }
+    #qrCard img {
+      width: 220px; height: 220px; border-radius: 10px; background: #fff;
+      display: block; margin: 0 auto 12px;
+    }
+    #qrUrl { font-size: 11px; color: #8ab; word-break: break-all; margin-bottom: 12px; line-height: 1.35; }
+    .qr-actions { display: flex; gap: 8px; }
+    .qr-actions button {
+      flex: 1; border: 0; border-radius: 10px; padding: 12px 8px;
+      font: 650 14px system-ui, sans-serif; cursor: pointer;
+    }
+    #qrClose { background: #44ffaa; color: #062218; }
+    #qrCopy { background: rgba(255,255,255,0.1); color: #e8eef8; }
+  </style>
+</head>
+<body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+
+  <div class="wrap">
+    <header>
+      <div class="logo-row">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="18" cy="18" r="14" stroke="#44ffaa" stroke-width="1.5" opacity="0.5"/>
+            <circle cx="18" cy="18" r="8" stroke="#7fd4ff" stroke-width="1.5" opacity="0.7"/>
+            <circle cx="18" cy="18" r="3" fill="#ffb4dc"/>
+          </svg>
+        </div>
+        <h1>Aaron's Apps</h1>
+      </div>
+      <p class="tagline">Free web apps that run in your browser — no accounts, no ads, no server-side data. Install on phone or open on desktop.</p>
+    </header>
+
+    <div class="toolbar" role="search">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+        <input type="search" id="search" placeholder="Search apps…" autocomplete="off" enterkeyhint="search">
+      </div>
+      <div class="filters" role="group" aria-label="Filter by platform">
+        <button type="button" class="filter on" data-platform="all">All</button>
+        <button type="button" class="filter" data-platform="desktop">Desktop</button>
+        <button type="button" class="filter" data-platform="android">Android</button>
+        <button type="button" class="filter" data-platform="ios">iOS</button>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <main class="grid" id="grid" aria-live="polite"></main>
+
+    <footer>
+      <div class="footer-actions">
+        <button type="button" id="btnInstall">Install this app</button>
+        <button type="button" id="btnShare">Share this page</button>
+        <a class="btn" id="btnKofi" href="https://ko-fi.com/aaroncallinan" target="_blank" rel="noopener noreferrer">Support on Ko-fi</a>
+      </div>
+      <p>Built as single-file HTML apps — fast, private, and easy to share.</p>
+      <p style="margin-top:8px">This catalog is its own app. ABC Done, Photo Slim and the rest install separately from their own pages — Chrome will not treat them as this hub.</p>
+      <p style="margin-top:8px">More projects added as they ship. Hub v<span id="hubVer"></span></p>
+    </footer>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
+    <div id="qrCard">
+      <p id="qrTitle" style="font:650 14px system-ui;margin-bottom:10px;color:#fff">Share this hub</p>
+      <img id="qrImg" width="220" height="220" alt="QR code for this page">
+      <div id="qrUrl"></div>
+      <div class="qr-actions">
+        <button type="button" id="qrCopy">Copy link</button>
+        <button type="button" id="qrClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const HUB_VER = '1.4.1';
+    const HUB_URL = (() => {
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set('v', HUB_VER);
+        u.hash = '';
+        return u.toString();
+      } catch { return 'https://azzabazza11.github.io/'; }
+    })();
+
+    const PROJECTS = [
+      {
+        id: 'sphere-circles',
+        title: 'Sphere Circles',
+        category: 'Creative',
+        desc: 'Tangential circles orbiting a sphere — full controls on desktop, a touch-friendly phone app you can install.',
+        accent: '#44ffaa',
+        icon: '◉',
+        platforms: ['desktop', 'android', 'ios'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/sphere-circles/',
+        appUrl: 'https://azzabazza11.github.io/sphere-circles/screensaver.html',
+        tags: ['animation', 'phone', 'pwa']
+      },
+      {
+        id: 'golf-tracker',
+        title: 'Golf Shot Tracker',
+        category: 'Sports',
+        desc: 'Track shot distances with GPS on the course. Tee off, mark, hole out — rounds stay on your device, no account needed.',
+        accent: '#2ecc71',
+        icon: '⛳',
+        platforms: ['android', 'ios', 'desktop'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/golf-tracker/',
+        appUrl: 'https://azzabazza11.github.io/golf-tracker/',
+        version: '1.5.38',
+        tags: ['golf', 'gps', 'sports', 'pwa']
+      },
+      {
+        id: 'road-speed',
+        title: 'Road Speed',
+        category: 'Tools',
+        desc: 'GPS speedometer with a big km/h display. Learns speed zones as you drive, confirm 60/80/100, then a casual overspeed ding.',
+        accent: '#3dd6c6',
+        icon: '⏱',
+        platforms: ['android', 'ios'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/road-speed/',
+        appUrl: 'https://azzabazza11.github.io/road-speed/',
+        version: '1.3.2',
+        tags: ['speed', 'gps', 'driving', 'pwa', 'phone']
+      },
+      {
+        id: 'road-lore',
+        title: 'Passenger Tales',
+        category: 'Travel',
+        desc: 'Travel companion that narrates local history as you drive — Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.',
+        accent: '#e2b15a',
+        icon: '🗺',
+        platforms: ['android', 'ios'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/road-lore/',
+        appUrl: 'https://azzabazza11.github.io/road-lore/',
+        version: '1.4.0',
+        versionUrl: 'https://azzabazza11.github.io/road-lore/version.json',
+        tags: ['travel', 'gps', 'wikipedia', 'ai', 'gemini', 'voice', 'pwa', 'phone']
+      },
+      {
+        id: 'chippy-helpers',
+        title: 'ABC Done!',
+        category: 'Tools',
+        desc: 'Free builder helper: spirit level, slope / fall calculator, and balustrade bay layout. Phone-first, works offline.',
+        accent: '#123c32',
+        icon: '📐',
+        platforms: ['android', 'ios'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/chippy-helpers/',
+        appUrl: 'https://azzabazza11.github.io/chippy-helpers/',
+        version: '1.1.0',
+        tags: ['builder', 'level', 'balustrade', 'pwa']
+      },
+      {
+        id: 'audio-backup-helper',
+        title: 'Back Me Up',
+        category: 'Tools',
+        desc: 'Arm a backup audio track, listen via mic, and take over if the main amplifier cuts out. Load a folder of lesson audio on your phone.',
+        accent: '#123c32',
+        icon: '🔊',
+        platforms: ['android', 'ios'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/audio-backup-helper/',
+        appUrl: 'https://azzabazza11.github.io/audio-backup-helper/',
+        version: '1.4.8',
+        tags: ['audio', 'backup', 'mic', 'pwa', 'phone']
+      },
+      {
+        id: 'photostitch',
+        title: 'PhotoStitch',
+        category: 'Tools',
+        desc: 'Stitch overlapping screenshots (maps, satellite tiles) into one montage PNG. Desktop — pick every join yourself.',
+        accent: '#7fd4ff',
+        icon: '⧉',
+        platforms: ['desktop'],
+        status: 'live',
+        installable: false,
+        desktopUrl: 'https://azzabazza11.github.io/PhotoStitch/',
+        appUrl: 'https://azzabazza11.github.io/PhotoStitch/',
+        version: '30',
+        tags: ['stitch', 'screenshots', 'maps', 'desktop']
+      },
+      {
+        id: 'photo-slim',
+        title: 'Photo Slim',
+        category: 'Tools',
+        desc: 'Shrink gallery photos for sending — smaller pixels and files, wipe preview, share or zip. Install on Android to receive shares from Gallery.',
+        accent: '#123c32',
+        icon: '▣',
+        platforms: ['android', 'ios', 'desktop'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/photo-slim/',
+        appUrl: 'https://azzabazza11.github.io/photo-slim/',
+        version: '1.1.0',
+        tags: ['photos', 'compress', 'resize', 'pwa', 'phone']
+      },
+      {
+        id: 'pinballplane',
+        title: 'Pinball Plane',
+        category: 'Games',
+        desc: '2D pinball built for your phone — tilt nudge, flippers, table editor, physics tweaks. Open in Chrome and Install / Add to Home Screen.',
+        accent: '#3dffa8',
+        icon: '🎮',
+        platforms: ['android', 'ios', 'desktop'],
+        status: 'live',
+        installable: true,
+        desktopUrl: 'https://azzabazza11.github.io/pinballplane/',
+        appUrl: 'https://azzabazza11.github.io/pinballplane/',
+        version: '1.0.0',
+        tags: ['game', 'pinball', 'tilt', 'pwa', 'phone']
+      }
+    ];
+
+    const $ = id => document.getElementById(id);
+    $('hubVer').textContent = HUB_VER;
+    let activePlatform = 'all';
+    let searchQuery = '';
+
+    function isMobileDevice() {
+      const ua = navigator.userAgent || '';
+      if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+      if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+      return matchMedia('(max-width: 820px) and (pointer: coarse)').matches;
+    }
+
+    /** Prefer phone app entry when Android/iOS filter is on, or device looks mobile. */
+    function preferMobileUi() {
+      if (activePlatform === 'android' || activePlatform === 'ios') return true;
+      if (activePlatform === 'desktop') return false;
+      return isMobileDevice();
+    }
+
+    function withInstallParam(url) {
+      try {
+        const u = new URL(url, location.href);
+        u.searchParams.set('install', '1');
+        return u.toString();
+      } catch {
+        return url + (url.includes('?') ? '&' : '?') + 'install=1';
+      }
+    }
+
+    function linksFor(p) {
+      if (p.status === 'soon') return [];
+      const mobile = preferMobileUi();
+      const openUrl = mobile
+        ? (p.appUrl || p.desktopUrl)
+        : (p.desktopUrl || p.appUrl);
+      if (!openUrl) return [];
+
+      const links = [{ label: 'Open app', url: openUrl, primary: true }];
+      if (mobile && p.installable) {
+        links.push({
+          label: 'Install in Chrome',
+          url: withInstallParam(p.appUrl || p.desktopUrl),
+          secondary: true
+        });
+      }
+      return links;
+    }
+
+    function matchesPlatform(p) {
+      if (activePlatform === 'all') return true;
+      return p.platforms.includes(activePlatform);
+    }
+
+    function matchesSearch(p) {
+      if (!searchQuery) return true;
+      const hay = [p.title, p.desc, p.category, p.version, ...(p.tags || [])].join(' ').toLowerCase();
+      return hay.includes(searchQuery);
+    }
+
+    function deviceHintText() {
+      if (activePlatform === 'android' || activePlatform === 'ios') {
+        return `Showing phone actions for <strong>${activePlatform}</strong>`;
+      }
+      if (activePlatform === 'desktop') {
+        return 'Showing desktop actions';
+      }
+      return isMobileDevice()
+        ? 'On a phone — opening the mobile app'
+        : 'On desktop — opening the desktop version where available';
+    }
+
+    function renderCards() {
+      const grid = $('grid');
+      const visible = PROJECTS.filter(p => matchesPlatform(p) && matchesSearch(p));
+      $('stats').innerHTML =
+        `Showing <span>${visible.length}</span> of <span>${PROJECTS.length}</span> apps` +
+        ` · <span class="device-hint" style="display:inline">${deviceHintText()}</span>`;
+
+      if (!visible.length) {
+        grid.innerHTML = '<div class="empty"><strong>No matches</strong>Try a different search or filter.</div>';
+        return;
+      }
+
+      grid.innerHTML = visible.map((p, i) => {
+        const soon = p.status === 'soon';
+        const badges = p.platforms.map(pl =>
+          `<span class="badge ${pl}">${pl}</span>`
+        ).join('');
+        const soonBadge = soon ? '<span class="badge soon">Coming soon</span>' : '';
+        const versionBadge = p.version ? `<span class="badge version">v${p.version}</span>` : '';
+        const actions = linksFor(p);
+
+        let links = '';
+        if (soon) {
+          links = '<span class="disabled">In development</span>';
+        } else if (!actions.length) {
+          links = '<span class="disabled">No link</span>';
+        } else {
+          links = actions.map(l =>
+            `<a href="${l.url}" target="_blank" rel="noopener noreferrer" class="${l.secondary ? 'secondary' : ''}">${l.label}</a>`
+          ).join('');
+        }
+
+        return `
+          <article class="card${soon ? ' soon' : ''}" style="--accent:${p.accent};animation-delay:${i * 0.06}s" data-id="${p.id}">
+            <div class="card-top">
+              <div class="card-icon" style="background:${p.accent}18;color:${p.accent}">${p.icon}</div>
+              <div class="card-meta">
+                <div class="card-cat">${p.category}</div>
+                <h2>${p.title}</h2>
+              </div>
+            </div>
+            <p>${p.desc}</p>
+            <div class="badges">${badges}${soonBadge}${versionBadge}</div>
+            <div class="card-links">${links}</div>
+          </article>`;
+      }).join('');
+    }
+
+    /* Platform filters */
+    document.querySelectorAll('.filter[data-platform]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter[data-platform]').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        activePlatform = btn.dataset.platform;
+        try { history.replaceState(null, '', activePlatform === 'all' ? location.pathname : '?platform=' + activePlatform); } catch {}
+        renderCards();
+      });
+    });
+
+    /* Search */
+    $('search').addEventListener('input', e => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderCards();
+    });
+
+    /* URL platform param */
+    try {
+      const params = new URLSearchParams(location.search);
+      const pl = params.get('platform');
+      if (pl && ['desktop', 'android', 'ios'].includes(pl)) {
+        activePlatform = pl;
+        document.querySelectorAll('.filter[data-platform]').forEach(b => {
+          b.classList.toggle('on', b.dataset.platform === pl);
+        });
+      }
+    } catch {}
+
+    /* Share modal */
+    function openQr() {
+      const url = HUB_URL;
+      $('qrUrl').textContent = url;
+      $('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=' + encodeURIComponent(url);
+      $('qrImg').alt = 'QR for ' + url;
+      $('qrModal').classList.add('open');
+    }
+    function closeQr() { $('qrModal').classList.remove('open'); }
+
+    $('btnShare').addEventListener('click', openQr);
+    $('qrClose').addEventListener('click', closeQr);
+    $('qrModal').addEventListener('click', e => { if (e.target === $('qrModal')) closeQr(); });
+    $('qrCopy').addEventListener('click', async () => {
+      const url = HUB_URL;
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+        else throw new Error('no clipboard');
+        $('qrCopy').textContent = 'Copied';
+        setTimeout(() => { $('qrCopy').textContent = 'Copy link'; }, 1200);
+      } catch {
+        $('qrCopy').textContent = 'Copy failed';
+        setTimeout(() => { $('qrCopy').textContent = 'Copy link'; }, 1200);
+      }
+    });
+
+    /* Hub PWA install */
+    const INSTALL_HINT_IOS = 'On iPhone: tap Share, then Add to Home Screen.';
+    let deferredInstallPrompt = null;
+
+    function isStandaloneDisplay() {
+      return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+    }
+    function isIosLike() {
+      const ua = navigator.userAgent || '';
+      return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+    function showToast(msg) {
+      const el = $('toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => el.classList.remove('show'), 3200);
+    }
+    function updateInstallButton() {
+      const btn = $('btnInstall');
+      if (!btn) return;
+      if (isStandaloneDisplay()) {
+        btn.hidden = true;
+        return;
+      }
+      btn.hidden = false;
+      btn.textContent = deferredInstallPrompt
+        ? 'Install this app'
+        : (isIosLike() ? 'Add to Home Screen' : 'Install this app');
+    }
+    async function promptInstallApp() {
+      if (isStandaloneDisplay()) {
+        showToast('Already installed');
+        return;
+      }
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch {}
+        deferredInstallPrompt = null;
+        updateInstallButton();
+        return;
+      }
+      showToast(isIosLike() ? INSTALL_HINT_IOS : 'Use your browser menu → Install app / Add to Home screen');
+    }
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      updateInstallButton();
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      updateInstallButton();
+      showToast('Installed');
+    });
+    if ($('btnInstall')) {
+      $('btnInstall').addEventListener('click', e => {
+        e.preventDefault();
+        promptInstallApp();
+      });
+    }
+    updateInstallButton();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js?v=' + HUB_VER).catch(() => {});
+    }
+    try {
+      if (new URLSearchParams(location.search).get('install') === '1') {
+        const tryInstall = () => promptInstallApp();
+        window.addEventListener('beforeinstallprompt', () => setTimeout(tryInstall, 50), { once: true });
+        setTimeout(tryInstall, 600);
+      }
+    } catch {}
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeQr();
+      if (e.key === '/' && document.activeElement !== $('search')) {
+        e.preventDefault();
+        $('search').focus();
+      }
+    });
+
+    /* Starfield background */
+    (function bg() {
+      const c = $('bg'), ctx = c.getContext('2d');
+      let w, h, stars = [], raf;
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function resize() {
+        w = c.width = innerWidth;
+        h = c.height = innerHeight;
+        stars = Array.from({ length: reduced ? 40 : 120 }, () => ({
+          x: Math.random() * w, y: Math.random() * h,
+          r: Math.random() * 1.2 + 0.3,
+          a: Math.random(), sp: Math.random() * 0.003 + 0.001
+        }));
+      }
+      function draw() {
+        ctx.fillStyle = '#05050c';
+        ctx.fillRect(0, 0, w, h);
+        for (const s of stars) {
+          if (!reduced) s.a = 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(Date.now() * s.sp));
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200,220,255,${s.a * 0.6})`;
+          ctx.fill();
+        }
+        raf = requestAnimationFrame(draw);
+      }
+      resize();
+      draw();
+      addEventListener('resize', resize);
+    })();
+
+
+    async function refreshLiveVersions() {
+      const jobs = PROJECTS.filter(p => p.versionUrl).map(async p => {
+        try {
+          const res = await fetch(p.versionUrl, { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data && data.version) p.version = String(data.version);
+        } catch {}
+      });
+      if (!jobs.length) return;
+      await Promise.all(jobs);
+      renderCards();
+    }
+    refreshLiveVersions();
+    renderCards();
+  </script>
+</body>
+</html>
