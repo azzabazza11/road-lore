@@ -1,10 +1,10 @@
 {
   "id": "https://azzabazza11.github.io/road-lore/",
-  "name": "Road Lore",
-  "short_name": "Road Lore",
+  "name": "Passenger Tales",
+  "short_name": "Passenger Tales",
   "lang": "en",
   "dir": "ltr",
-  "description": "Travel companion that narrates local history and interesting places as you drive. v1.3.6",
+  "description": "Passenger companion that narrates local history and interesting places as you drive. v1.4.0",
   "start_url": "./index.html?homescreen=1",
   "scope": "./",
   "display": "standalone",
@@ -57,7 +57,7 @@
       "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Road Lore on a wide screen"
+      "label": "Passenger Tales on a wide screen"
     }
   ]
 }
