@@ -1,4 +1,4 @@
-const CACHE = 'road-lore-v1.1.0';
+const CACHE = 'road-lore-v1.3.1';
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,9 @@ const ASSETS = [
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
-  self.skipWaiting();
+  // First install for this registration: take over so a fresh visit gets a worker.
+  // Updates wait until the page posts SKIP_WAITING (user taps Update).
+  if (!self.registration.active) self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
@@ -20,10 +22,25 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+function bypassCache(url) {
+  const path = url.pathname;
+  return path.endsWith('/version.json') || path.endsWith('version.json') ||
+    path.endsWith('/service-worker.js') || path.endsWith('service-worker.js');
+}
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+
+  if (bypassCache(url)) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request)));
+    return;
+  }
 
   const isNav = event.request.mode === 'navigate' ||
     event.request.destination === 'document' ||

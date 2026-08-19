@@ -21,9 +21,15 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - **Nearby lore** — Wikipedia places within ~10 km (API limit)
 - **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search), great where Wikipedia is thin
 - **Narration** — short spoken intro via the device voice (mute / skip / replay)
-- **Spacing** — won’t chatter every corner; min distance between stories
-- **Log** — what you’ve heard this trip, with Wikipedia links
+- **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
+- **Log** — last five stories, replay or hear more
 - Screen wake lock while travelling (optional)
+- Light / dark / auto (follows day and night from GPS)
+- **More** — flesh out the current find (Wikipedia rest, then AI)
+- Last five stories kept on-device, including Gemini audio so replay does not regenerate
+- First-run welcome, then a short spoken note and a story from where you are
+- One-week complimentary generated voice (Cloud Run), then free on-device voice
+- Installed app asks before updating when a newer version is on the server
 - **Share QR** — copy the live link, support on Ko-fi, or open More apps
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
@@ -35,7 +41,13 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.1.0**
+Version: **1.3.1**
+
+Installed copies stay on the version they have until you tap **Update** on the in-app prompt. They keep working with older builds; settings and the story log are unchanged.
+
+## Complimentary week, then free voice
+
+Web apps cannot read a phone’s MAC address. Road Lore instead keeps a private random device id on the phone and a signed 7-day trial token from `POST /api/session`. Generated voice and AI stories work during that week (Cloud Run). After it ends, the app continues on the **free on-device voice** and Wikipedia nearby lore. Clearing site data starts a new local trial — real accounts (email / Google) would lock a trial to a person when you are ready.
 
 ## Gemini AI voice (optional)
 

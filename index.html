@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#10161c" />
+  <meta name="theme-color" content="#10161c" id="themeColor" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Road Lore" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.1.0" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.3.1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
@@ -18,23 +18,49 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@450;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg0: #0c1218;
-      --bg1: #152029;
-      --panel: #172430;
-      --ink: #eef3f7;
-      --muted: #93a4b3;
-      --line: #2a3a48;
-      --accent: #e2b15a;
-      --accent-ink: #1a1408;
-      --soft: #6ec4b8;
-      --bad: #ff7a7a;
-      --chip: #1c2b38;
       --safe-t: env(safe-area-inset-top, 0px);
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-l: env(safe-area-inset-left, 0px);
       --safe-r: env(safe-area-inset-right, 0px);
       --tap: 48px;
       --radius: 18px;
+      --accent: #c9953d;
+      --accent-ink: #1a1408;
+      --glow: rgba(201, 149, 61, 0.16);
+    }
+    html, html[data-theme="dark"] {
+      --bg0: #0e141b;
+      --bg1: #161f28;
+      --panel: #1a2530;
+      --ink: #f3f6f8;
+      --muted: #8fa0ae;
+      --line: #2c3b48;
+      --soft: #5dcdc0;
+      --bad: #ff7a7a;
+      --chip: #22303c;
+      --danger-bg: #2a1818;
+      --danger-line: #6a3030;
+      --danger-ink: #ffc0c0;
+      --hero: linear-gradient(165deg, var(--glow), transparent 42%), linear-gradient(180deg, #1c2833, #121a22);
+      --overlay: rgba(6, 10, 14, 0.72);
+      --theme-meta: #10161c;
+    }
+    html[data-theme="light"] {
+      --bg0: #f3eee6;
+      --bg1: #fffaf3;
+      --panel: #ffffff;
+      --ink: #1c1916;
+      --muted: #6a6158;
+      --line: #e3d6c6;
+      --soft: #1a7a70;
+      --bad: #c43c3c;
+      --chip: #f6efe4;
+      --danger-bg: #f8e8e6;
+      --danger-line: #e0b4ae;
+      --danger-ink: #8a2a22;
+      --hero: linear-gradient(165deg, var(--glow), transparent 45%), linear-gradient(180deg, #fffdf8, #f4ebe0);
+      --overlay: rgba(28, 25, 22, 0.45);
+      --theme-meta: #f3eee6;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -44,10 +70,7 @@
       color: var(--ink);
       font-family: "Outfit", system-ui, sans-serif;
       font-weight: 450;
-      background:
-        radial-gradient(ellipse 90% 60% at 50% -10%, #243445 0%, transparent 55%),
-        radial-gradient(ellipse 70% 40% at 100% 100%, #1a2c28 0%, transparent 45%),
-        var(--bg0);
+      background: var(--bg0);
     }
     body {
       padding:
@@ -62,14 +85,11 @@
     .topbar {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-height: var(--tap);
       margin-bottom: 14px;
     }
-    .brand {
-      flex: 1;
-      min-width: 0;
-    }
+    .brand { flex: 1; min-width: 0; }
     .brand h1 {
       margin: 0;
       font-family: "Fraunces", Georgia, serif;
@@ -104,13 +124,11 @@
 
     .hero {
       border: 1px solid var(--line);
-      border-radius: 28px;
-      padding: 22px 18px 18px;
-      background:
-        linear-gradient(165deg, rgba(226, 177, 90, 0.08), transparent 40%),
-        linear-gradient(180deg, #1a2834, #121c24);
-      margin-bottom: 14px;
-      min-height: 280px;
+      border-radius: 24px;
+      padding: 20px 18px 16px;
+      background: var(--hero);
+      margin-bottom: 12px;
+      min-height: 260px;
       display: flex;
       flex-direction: column;
     }
@@ -123,7 +141,7 @@
     }
     .topic {
       font-family: "Fraunces", Georgia, serif;
-      font-size: clamp(1.55rem, 6.2vw, 2.1rem);
+      font-size: clamp(1.5rem, 6vw, 2rem);
       font-weight: 650;
       line-height: 1.15;
       margin: 0 0 12px;
@@ -143,7 +161,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 16px;
+      margin-top: 14px;
     }
     .pill {
       display: inline-flex;
@@ -157,19 +175,22 @@
       font-size: 0.85rem;
     }
     .pill strong { color: var(--ink); font-weight: 700; }
-    .pill.live { border-color: #2f6b63; color: var(--soft); }
-    .pill.talk { border-color: #7a5a22; color: var(--accent); }
+    .pill.live { border-color: color-mix(in srgb, var(--soft) 55%, var(--line)); color: var(--soft); }
+    .pill.talk { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent); }
 
     .controls {
       display: grid;
-      grid-template-columns: 1.5fr 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 14px;
+      grid-template-columns: 1.4fr 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 380px) {
+      .controls { grid-template-columns: 1fr 1fr; }
     }
     .btn {
       min-height: 56px;
       border-radius: 16px;
-      padding: 12px 14px;
+      padding: 12px 10px;
       font-weight: 700;
       border: 1px solid var(--line);
       background: var(--panel);
@@ -181,9 +202,9 @@
       color: var(--accent-ink);
     }
     .btn.danger {
-      background: #2a1818;
-      border-color: #6a3030;
-      color: #ffc0c0;
+      background: var(--danger-bg);
+      border-color: var(--danger-line);
+      color: var(--danger-ink);
     }
     .btn:disabled { opacity: 0.4; }
 
@@ -197,14 +218,14 @@
     }
     .dot {
       width: 8px; height: 8px; border-radius: 50%;
-      background: #4a5568; display: inline-block;
+      background: var(--line); display: inline-block;
     }
-    .dot.on { background: var(--soft); box-shadow: 0 0 0 4px rgba(110, 196, 184, 0.15); }
+    .dot.on { background: var(--soft); box-shadow: 0 0 0 4px color-mix(in srgb, var(--soft) 20%, transparent); }
     .dot.warn { background: var(--accent); }
     .dot.bad { background: var(--bad); }
 
     .panel {
-      background: rgba(23, 36, 48, 0.92);
+      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 14px;
@@ -223,13 +244,13 @@
     }
     .log {
       display: grid;
-      gap: 8px;
-      max-height: 220px;
+      gap: 10px;
+      max-height: 320px;
       overflow: auto;
     }
     .log-item {
-      padding: 10px 12px;
-      border-radius: 12px;
+      padding: 12px;
+      border-radius: 14px;
       background: var(--chip);
       border: 1px solid var(--line);
     }
@@ -240,6 +261,24 @@
       margin-bottom: 4px;
     }
     .log-item span { color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+    .log-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .log-actions button, .log-actions a {
+      flex: 1;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-decoration: none;
+      color: var(--ink);
+    }
 
     .screen { display: none; }
     .screen.active { display: block; animation: fade .2s ease; }
@@ -256,19 +295,13 @@
       color: var(--muted);
     }
     .settings input[type="number"],
-    .settings select,
-    .settings input[type="password"],
-    .settings input[type="text"] {
+    .settings select {
       min-height: 48px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: var(--chip);
       padding: 0 12px;
       color: var(--ink);
-    }
-    .settings input[type="password"] {
-      font-family: ui-monospace, monospace;
-      font-size: 0.88rem;
     }
     .voice-panel { display: none; }
     .voice-panel.active { display: block; }
@@ -283,18 +316,45 @@
     }
     .toggle {
       width: 52px; height: 32px; border-radius: 999px;
-      background: #243149; border: 1px solid var(--line);
+      background: var(--chip); border: 1px solid var(--line);
       position: relative; flex: 0 0 auto;
     }
     .toggle::after {
       content: "";
       position: absolute; top: 3px; left: 3px;
       width: 24px; height: 24px; border-radius: 50%;
-      background: #8b9bb8;
+      background: var(--muted);
       transition: transform .18s ease, background .18s ease;
     }
     .toggle.on { background: #3d6b48; border-color: #4f8a5c; }
     .toggle.on::after { transform: translateX(20px); background: #eef3f7; }
+
+    .seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .seg button {
+      min-height: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .seg button.on {
+      background: var(--panel);
+      color: var(--ink);
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    .seg-caption {
+      margin: -8px 0 14px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
 
     .empty { color: var(--muted); font-size: 0.88rem; padding: 4px 0; }
     a.wiki {
@@ -304,95 +364,148 @@
       font-weight: 600;
     }
 
-    #qrModal {
+    .sheet {
       display: none;
       position: fixed;
       inset: 0;
       z-index: 40;
-      background: rgba(6, 10, 14, 0.78);
-      align-items: center;
+      background: var(--overlay);
+      align-items: flex-end;
       justify-content: center;
-      padding: 24px;
+      padding: 16px;
     }
-    #qrModal.open { display: flex; }
-    #qrCard {
-      background: #121c24;
+    .sheet.open { display: flex; }
+    .sheet.center { align-items: center; }
+    .sheet-card {
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px 18px 14px;
-      text-align: center;
-      max-width: 300px;
-      width: 100%;
+      border-radius: 20px;
+      padding: 18px 16px 14px;
+      width: min(420px, 100%);
       color: var(--ink);
+      margin-bottom: var(--safe-b);
     }
-    #qrCard h3 {
-      margin: 0 0 12px;
+    .sheet-card h3 {
+      margin: 0 0 8px;
       font-family: "Fraunces", Georgia, serif;
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: 650;
     }
+    .sheet-card p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+    .sheet-stack { display: grid; gap: 8px; }
+    .sheet-stack button {
+      min-height: 52px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      font-weight: 700;
+    }
+    .sheet-stack .primary {
+      background: linear-gradient(180deg, #ecc178, #c9953d);
+      border-color: #a8782c;
+      color: var(--accent-ink);
+    }
+    #qrCard { text-align: center; max-width: 300px; }
     #qrCard img {
-      width: 220px;
-      height: 220px;
-      border-radius: 10px;
-      background: #fff;
-      display: block;
-      margin: 0 auto 12px;
+      width: 220px; height: 220px; border-radius: 10px; background: #fff;
+      display: block; margin: 0 auto 12px;
     }
     #qrUrl {
-      font-size: 11px;
-      color: var(--muted);
-      word-break: break-all;
-      margin-bottom: 12px;
-      line-height: 1.35;
+      font-size: 11px; color: var(--muted); word-break: break-all;
+      margin-bottom: 12px; line-height: 1.35;
     }
     #qrCard .qr-actions { display: flex; gap: 8px; }
     #qrCard .qr-actions button {
-      flex: 1;
-      border: 0;
-      border-radius: 10px;
-      padding: 12px 8px;
-      font-weight: 700;
-      font-size: 0.92rem;
+      flex: 1; border: 0; border-radius: 10px; padding: 12px 8px;
+      font-weight: 700; font-size: 0.92rem;
     }
-    #qrClose {
-      background: linear-gradient(180deg, #ecc178, #c9953d);
-      color: var(--accent-ink);
+    #qrClose { background: linear-gradient(180deg, #ecc178, #c9953d); color: var(--accent-ink); }
+    #qrCopy { background: var(--chip); border: 1px solid var(--line); color: var(--ink); }
+    #qrKofi {
+      width: 100%; margin-top: 8px; border: 0; border-radius: 10px; padding: 12px 8px;
+      font-weight: 700; font-size: 0.92rem; background: #ff5e5b; color: #fff;
     }
-    #qrCopy {
-      background: var(--chip);
-      border: 1px solid var(--line);
+    .intro {
+      max-width: 440px;
+      margin: 0 auto;
+      padding-bottom: 8px;
+    }
+    .intro-mark {
+      color: var(--soft);
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin: 8px 0 8px;
+    }
+    .intro h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(1.8rem, 7vw, 2.35rem);
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
+      line-height: 1.15;
+    }
+    .intro .lede {
+      font-size: 1.05rem;
+      line-height: 1.5;
+      color: var(--muted);
+      margin: 0 0 16px;
+    }
+    .intro h2 {
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin: 18px 0 8px;
       color: var(--ink);
     }
-    #qrKofi {
-      width: 100%;
-      margin-top: 8px;
-      border: 0;
-      border-radius: 10px;
-      padding: 12px 8px;
-      font-weight: 700;
+    .intro ol {
+      margin: 0 0 8px;
+      padding-left: 1.15rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .intro ol li { margin-bottom: 6px; }
+    .intro-note {
+      background: var(--chip);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      color: var(--muted);
       font-size: 0.92rem;
-      background: #ff5e5b;
-      color: #fff;
+      line-height: 1.45;
+      margin: 16px 0 18px;
     }
-    #qrHub {
-      display: block;
-      width: 100%;
-      margin-top: 8px;
-      border-radius: 10px;
-      padding: 12px 8px;
-      font-weight: 700;
-      font-size: 0.88rem;
-      text-align: center;
-      text-decoration: none;
-      background: rgba(110, 196, 184, 0.12);
-      color: var(--soft);
-      border: 1px solid rgba(110, 196, 184, 0.28);
-    }
+    .intro-note strong { color: var(--ink); font-weight: 700; }
   </style>
 </head>
 <body>
-  <div id="home" class="screen active">
+  <div id="intro" class="screen">
+    <div class="intro">
+      <div class="intro-mark">Welcome</div>
+      <h1>Road Lore</h1>
+      <p class="lede">A passenger companion. Nearby places, read aloud as a short local sketch — not a map, not a navigator, and not something to operate while driving.</p>
+      <h2>What to expect</h2>
+      <ol>
+        <li>Allow location when asked.</li>
+        <li>A first story can begin where you are, even before you move.</li>
+        <li>Skip, Replay, and More are for the passenger. Stories start often; you can ease the pace later.</li>
+        <li>The first week includes the generated voice where the service is available. After that, the free on-device voice continues.</li>
+      </ol>
+      <div class="intro-note">
+        <strong>A word on the telling.</strong>
+        Narration may use a generated voice, drawing on local history and the open web. Names are sometimes mis-said, and like any AI-assisted sketch, a detail may be off. Take it as a companionable introduction, not a finished history.
+      </div>
+      <button class="btn primary" id="btnIntroStart" style="width:100%">Start trip</button>
+    </div>
+  </div>
+
+  <div id="home" class="screen">
     <div class="topbar">
       <div class="brand">
         <h1>Road Lore</h1>
@@ -418,6 +531,7 @@
       <button class="btn primary" id="btnTrip">Start trip</button>
       <button class="btn" id="btnSkip" disabled>Skip</button>
       <button class="btn" id="btnReplay" disabled>Replay</button>
+      <button class="btn" id="btnMore" disabled>More</button>
     </div>
 
     <div class="status">
@@ -451,13 +565,23 @@
         <span>Don’t repeat stories</span>
         <button class="toggle on" id="noRepeatToggle" type="button" aria-pressed="true"></button>
       </div>
+      <label>Story frequency</label>
+      <div class="seg" id="freqSeg" role="group" aria-label="Story frequency">
+        <button type="button" data-km="0.5">Often</button>
+        <button type="button" data-km="6">Sparse</button>
+        <button type="button" data-km="16">Sporadic</button>
+      </div>
+      <p class="seg-caption" id="freqCaption">A story about every 0.5 km</p>
+      <label>Appearance</label>
+      <div class="seg" id="themeSeg" role="group" aria-label="Appearance">
+        <button type="button" data-theme="light">Light</button>
+        <button type="button" data-theme="dark">Dark</button>
+        <button type="button" data-theme="auto">Auto</button>
+      </div>
+      <p class="seg-caption">Auto follows day and night from GPS.</p>
       <label>
         Search radius (km)
         <input type="number" id="radiusKm" min="2" max="10" step="1" />
-      </label>
-      <label>
-        Min km between stories
-        <input type="number" id="minGapKm" min="0.5" max="30" step="0.5" />
       </label>
       <label>
         Speaking rate
@@ -481,7 +605,8 @@
           Gemini voice
           <select id="geminiVoice"></select>
         </label>
-        <p class="hint">Natural narration generated by the Road Lore backend using <code>gemini-2.5-flash-preview-tts</code>. Needs network.</p>
+        <p class="hint">Natural narration generated by the Road Lore backend using <code>gemini-2.5-flash-preview-tts</code>. Complimentary for one week, then the on-device voice continues free. Needs network.</p>
+        <p class="hint" id="trialHint" style="margin-top:8px"></p>
       </div>
       <div class="row">
         <span>Auto-narrate nearby lore</span>
@@ -501,8 +626,8 @@
     </div>
   </div>
 
-  <div id="qrModal">
-    <div id="qrCard">
+  <div id="qrModal" class="sheet center">
+    <div id="qrCard" class="sheet-card">
       <h3>Share Road Lore</h3>
       <img id="qrImg" width="220" height="220" alt="Share QR">
       <div id="qrUrl"></div>
@@ -515,8 +640,32 @@
     </div>
   </div>
 
+  <div id="freqModal" class="sheet">
+    <div class="sheet-card">
+      <h3>How’s the chatter?</h3>
+      <p>Three stories in. Want more, fewer, or is this just right?</p>
+      <div class="sheet-stack">
+        <button type="button" class="primary" id="freqMore">More stories</button>
+        <button type="button" id="freqOk">Just right</button>
+        <button type="button" id="freqLess">Less often</button>
+        <button type="button" id="freqDismiss">Not now</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="updateModal" class="sheet">
+    <div class="sheet-card">
+      <h3>New version</h3>
+      <p><span id="updateCopy">A new version of Road Lore is ready.</span> Update now?</p>
+      <div class="sheet-stack">
+        <button type="button" class="primary" id="updateNow">Update</button>
+        <button type="button" id="updateLater">Later</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const APP_VERSION = '1.1.0';
+    const APP_VERSION = '1.3.1';
     const SUPPORT_URL = 'https://ko-fi.com/aaroncallinan';
     const STORE_KEY = 'road-lore-v1';
     const WIKI = 'https://en.wikipedia.org/w/api.php';
@@ -524,13 +673,41 @@
     const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr'];
     const LOOKUP_MIN_MS = 12000;
     const SAMPLE_MIN_MS = 1000;
+    const LOG_KEEP = 5;
+    const FREQ_STOPS = [0.5, 6, 16];
+    const AUDIO_DB = 'road-lore-audio';
+    const AUDIO_STORE = 'clips';
+    const UPDATE_LATER_KEY = 'road-lore-update-later';
 
     const $ = id => document.getElementById(id);
+
+    function snapFreq(km) {
+      const n = Number(km);
+      if (!Number.isFinite(n)) return 0.5;
+      let best = FREQ_STOPS[0];
+      let dist = Math.abs(n - best);
+      for (const stop of FREQ_STOPS) {
+        const d = Math.abs(n - stop);
+        if (d < dist) { best = stop; dist = d; }
+      }
+      return best;
+    }
+
+    function freqLabel(km) {
+      if (km <= 0.5) return 'Often';
+      if (km <= 6) return 'Sparse';
+      return 'Sporadic';
+    }
+
+    function nextSparser(km) {
+      const i = FREQ_STOPS.indexOf(snapFreq(km));
+      return FREQ_STOPS[Math.min(FREQ_STOPS.length - 1, Math.max(0, i) + 1)];
+    }
 
     const defaultState = () => ({
       settings: {
         radiusKm: 10,
-        minGapKm: 4,
+        minGapKm: 0.5,
         rate: 1,
         voiceURI: '',
         voiceEngine: 'device',
@@ -539,10 +716,17 @@
         noRepeat: true,
         auto: true,
         wakeLock: true,
-        muted: false
+        muted: false,
+        appearance: 'auto',
+        freqPrompted: false,
+        seenIntro: false
       },
       heard: {},
-      log: []
+      log: [],
+      deviceId: '',
+      trialToken: '',
+      trialEnds: 0,
+      trialActive: null
     });
 
     let state = loadState();
@@ -560,6 +744,21 @@
     let audioCtx = null;
     let geminiSource = null;
     let speakGen = 0;
+    let tripStoryCount = 0;
+    let moreBusy = false;
+    let audioDbPromise = null;
+    let pendingIntroLore = false;
+    let introPlaying = false;
+    let updatePendingVer = '';
+    let updatePrompted = false;
+    let updateReloading = false;
+    let updateFromSW = false;
+
+    const INTRO_SPEECH =
+      'Road Lore is a passenger companion, not a navigator. ' +
+      'I will share short local stories drawn from nearby history and the web. ' +
+      'The voice is generated, so names may be mispronounced, and a detail may occasionally be imperfect. ' +
+      'Let\'s begin here.';
 
     function loadState() {
       try {
@@ -571,13 +770,26 @@
           ...p,
           settings: { ...defaultState().settings, ...(p.settings || {}) },
           heard: p.heard || {},
-          log: p.log || []
+          log: p.log || [],
+          deviceId: p.deviceId || '',
+          trialToken: p.trialToken || '',
+          trialEnds: Number(p.trialEnds) || 0,
+          trialActive: p.trialActive
         };
         next.settings.radiusKm = Math.min(10, Math.max(2, Number(next.settings.radiusKm) || 10));
         if (!['device', 'gemini'].includes(next.settings.voiceEngine)) next.settings.voiceEngine = 'device';
         if (!GEMINI_VOICES.includes(next.settings.geminiVoice)) next.settings.geminiVoice = 'Kore';
         if (!['auto', 'wikipedia', 'ai'].includes(next.settings.loreSource)) next.settings.loreSource = 'auto';
         next.settings.noRepeat = next.settings.noRepeat !== false;
+        next.settings.minGapKm = snapFreq(next.settings.minGapKm);
+        if (!['auto', 'light', 'dark'].includes(next.settings.appearance)) next.settings.appearance = 'auto';
+        next.settings.freqPrompted = !!next.settings.freqPrompted;
+        if (next.settings.seenIntro == null) {
+          next.settings.seenIntro = !!(next.log && next.log.length);
+        } else {
+          next.settings.seenIntro = !!next.settings.seenIntro;
+        }
+        if (next.log.length > LOG_KEEP) next.log.length = LOG_KEEP;
         return next;
       } catch {
         return defaultState();
@@ -588,8 +800,112 @@
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
     }
 
+    function ensureDeviceId() {
+      if (state.deviceId) return state.deviceId;
+      state.deviceId = (crypto.randomUUID && crypto.randomUUID()) ||
+        ('rl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+      saveState();
+      return state.deviceId;
+    }
+
+    function trialIsActive() {
+      if (state.trialActive === false) return false;
+      if (state.trialEnds && Date.now() > state.trialEnds) return false;
+      return true;
+    }
+
+    function applyTrialGates() {
+      if (trialIsActive()) return false;
+      let changed = false;
+      if (state.settings.voiceEngine === 'gemini') {
+        state.settings.voiceEngine = 'device';
+        changed = true;
+      }
+      if (state.settings.loreSource === 'ai') {
+        state.settings.loreSource = 'wikipedia';
+        changed = true;
+      }
+      if (changed) saveState();
+      return true;
+    }
+
+    function apiHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.trialToken) headers['x-road-lore-trial'] = state.trialToken;
+      return headers;
+    }
+
+    async function refreshTrial() {
+      try {
+        const res = await fetch('api/session', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({ deviceId: ensureDeviceId() })
+        });
+        if (!res.ok) throw new Error('session');
+        const data = await res.json();
+        if (data.token) state.trialToken = data.token;
+        if (data.deviceId && !state.deviceId) state.deviceId = data.deviceId;
+        if (Number.isFinite(data.trialEnds)) state.trialEnds = data.trialEnds;
+        state.trialActive = data.trialActive !== false;
+        saveState();
+      } catch {
+        // Static hosting has no session; generated voice is unavailable there anyway.
+      }
+      applyTrialGates();
+      renderSettings();
+    }
+
+    function trialHintText() {
+      if (!state.trialEnds) {
+        return 'Generated voice is complimentary for the first week where the service is available. After that, the on-device voice stays free.';
+      }
+      if (trialIsActive()) {
+        const days = Math.max(0, Math.ceil((state.trialEnds - Date.now()) / 86400000));
+        return 'Complimentary generated voice · ' + days + ' day' + (days === 1 ? '' : 's') + ' remaining. The on-device voice is always free.';
+      }
+      return 'The complimentary week has ended. Continuing on the free on-device voice. Wikipedia nearby lore remains available.';
+    }
+
+    function osPrefersDark() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    // Solar altitude in degrees. Positive = sun up. Civil dawn ~ -0.83°.
+    function solarAltitude(lat, lng, date) {
+      const rad = Math.PI / 180;
+      const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+      const day = (Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - start) / 86400000;
+      const decl = -23.44 * rad * Math.cos((2 * Math.PI / 365) * (day + 10));
+      const utcHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+      const hourAngle = (utcHours + lng / 15 - 12) * 15 * rad;
+      const latR = lat * rad;
+      const sinAlt = Math.sin(latR) * Math.sin(decl) + Math.cos(latR) * Math.cos(decl) * Math.cos(hourAngle);
+      return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / rad;
+    }
+
+    function resolvedTheme() {
+      const mode = state.settings.appearance || 'auto';
+      if (mode === 'light' || mode === 'dark') return mode;
+      if (lastPos && Number.isFinite(lastPos.lat) && Number.isFinite(lastPos.lng)) {
+        return solarAltitude(lastPos.lat, lastPos.lng, new Date()) > -0.83 ? 'light' : 'dark';
+      }
+      return osPrefersDark() ? 'dark' : 'light';
+    }
+
+    function applyTheme() {
+      const theme = resolvedTheme();
+      document.documentElement.setAttribute('data-theme', theme);
+      const meta = $('themeColor');
+      if (meta) {
+        const cs = getComputedStyle(document.documentElement);
+        meta.setAttribute('content', (cs.getPropertyValue('--theme-meta') || '').trim() || (theme === 'light' ? '#f3eee6' : '#10161c'));
+      }
+    }
+
     function showScreen(name) {
-      ['home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
+      ['intro', 'home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
+      if (name !== 'intro') maybeShowUpdate();
     }
 
     function haversine(a, b) {
@@ -723,6 +1039,88 @@
       return out;
     }
 
+    function audioKey(pageid, kind, voice) {
+      return String(pageid) + '|' + (kind || 'main') + '|' + (voice || 'Kore');
+    }
+
+    function openAudioDb() {
+      if (audioDbPromise) return audioDbPromise;
+      audioDbPromise = new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) {
+          reject(new Error('no idb'));
+          return;
+        }
+        const req = indexedDB.open(AUDIO_DB, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(AUDIO_STORE)) {
+            db.createObjectStore(AUDIO_STORE, { keyPath: 'key' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      return audioDbPromise;
+    }
+
+    async function getClip(key) {
+      try {
+        const db = await openAudioDb();
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(AUDIO_STORE, 'readonly');
+          const req = tx.objectStore(AUDIO_STORE).get(key);
+          req.onsuccess = () => {
+            const row = req.result;
+            resolve(row && row.pcm ? new Uint8Array(row.pcm) : null);
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } catch {
+        return null;
+      }
+    }
+
+    async function putClip(key, pcmBytes) {
+      try {
+        const db = await openAudioDb();
+        const copy = pcmBytes.buffer.slice(pcmBytes.byteOffset, pcmBytes.byteOffset + pcmBytes.byteLength);
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(AUDIO_STORE, 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          tx.objectStore(AUDIO_STORE).put({ key, t: Date.now(), pcm: copy });
+        });
+        const all = await new Promise((resolve, reject) => {
+          const tx = db.transaction(AUDIO_STORE, 'readonly');
+          const req = tx.objectStore(AUDIO_STORE).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+        if (all.length <= LOG_KEEP) return;
+        all.sort((a, b) => (b.t || 0) - (a.t || 0));
+        const drop = all.slice(LOG_KEEP);
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(AUDIO_STORE, 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          const store = tx.objectStore(AUDIO_STORE);
+          drop.forEach(row => store.delete(row.key));
+        });
+      } catch { /* ignore quota / private mode */ }
+    }
+
+    async function clearAudioStore() {
+      try {
+        const db = await openAudioDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(AUDIO_STORE, 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          tx.objectStore(AUDIO_STORE).clear();
+        });
+      } catch { /* ignore */ }
+    }
+
     // Ask the backend proxy (server.js) for audio. The proxy holds the API key
     // server-side, so nothing secret ships to the browser. Returns PCM bytes,
     // or null if no backend is available (e.g. plain static hosting).
@@ -730,9 +1128,14 @@
       try {
         const res = await fetch('api/tts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiHeaders(),
           body: JSON.stringify({ text, voice })
         });
+        if (res.status === 402 || res.status === 401) {
+          state.trialActive = false;
+          applyTrialGates();
+          return null;
+        }
         if (!res.ok) return null;
         const data = await res.json();
         return data && data.audio ? b64ToBytes(data.audio) : null;
@@ -741,15 +1144,22 @@
       }
     }
 
-    async function speakGemini(text, onEnd, gen) {
+    async function speakGemini(text, onEnd, gen, cacheKey) {
       speaking = true;
       setVoiceStatus('Generating AI voice…');
       $('eyebrow').textContent = 'Now narrating';
       $('placePill').classList.add('talk');
       const voice = state.settings.geminiVoice || 'Kore';
+      const key = cacheKey || audioKey('adhoc', String(text).slice(0, 40), voice);
       try {
-        const pcm = await ttsViaProxy(text, voice);
+        let pcm = await getClip(key);
         if (gen !== speakGen) return;
+        if (pcm) setVoiceStatus('Speaking…');
+        if (!pcm) {
+          pcm = await ttsViaProxy(text, voice);
+          if (gen !== speakGen) return;
+          if (pcm) await putClip(key, pcm);
+        }
         if (!pcm) throw new Error('no audio');
         setVoiceStatus('Speaking…');
         await playPcm(pcm);
@@ -804,7 +1214,7 @@
       }, 60);
     }
 
-    function speak(text, onEnd) {
+    function speak(text, onEnd, cacheKey) {
       stopSpeech();
       if (state.settings.muted) {
         setVoiceStatus('Muted');
@@ -812,8 +1222,8 @@
         return;
       }
       const gen = speakGen;
-      if (state.settings.voiceEngine === 'gemini') {
-        speakGemini(text, onEnd, gen);
+      if (state.settings.voiceEngine === 'gemini' && trialIsActive()) {
+        speakGemini(text, onEnd, gen, cacheKey);
         return;
       }
       speakDevice(text, onEnd, gen);
@@ -834,13 +1244,14 @@
       return data?.query?.geosearch || [];
     }
 
-    async function wikiExtracts(pageids) {
+    async function wikiExtracts(pageids, { full = false } = {}) {
       if (!pageids.length) return {};
       const url = new URL(WIKI);
       url.searchParams.set('action', 'query');
       url.searchParams.set('prop', 'extracts|info');
-      url.searchParams.set('exintro', '1');
+      if (!full) url.searchParams.set('exintro', '1');
       url.searchParams.set('explaintext', '1');
+      if (full) url.searchParams.set('exchars', '1800');
       url.searchParams.set('inprop', 'url');
       url.searchParams.set('pageids', pageids.join('|'));
       url.searchParams.set('format', 'json');
@@ -909,9 +1320,14 @@
       if (state.settings.noRepeat !== false) body.avoid = recentTitles(8);
       const res = await fetch('api/lore', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify(body)
       });
+      if (res.status === 402 || res.status === 401) {
+        state.trialActive = false;
+        applyTrialGates();
+        throw new Error('trial ended');
+      }
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
       if (!data || !data.text) return null;
@@ -924,54 +1340,141 @@
         dist: null,
         sources,
         ai: true,
+        lat, lng,
         url: sources[0] ? sources[0].uri : 'https://www.google.com/search?q=' + encodeURIComponent(title)
       };
     }
 
-    // Fetch a story according to the chosen lore source. "auto" tries Wikipedia
-    // first (fast, precise) and falls back to grounded AI when nothing suitable
-    // is nearby — ideal where Wikipedia coverage is sparse.
+    function extraAfter(already, full) {
+      const a = cleanExtract(already);
+      const f = cleanExtract(full);
+      if (!f || f.length < a.length + 60) return '';
+      if (f.indexOf(a.slice(0, Math.min(80, a.length))) === 0) {
+        return cleanExtract(f.slice(a.length));
+      }
+      const tail = a.slice(-48);
+      const idx = f.indexOf(tail);
+      if (idx >= 0) return cleanExtract(f.slice(idx + tail.length));
+      return '';
+    }
+
+    async function expandViaAI(story) {
+      const lat = story.lat != null ? story.lat : (lastPos && lastPos.lat);
+      const lng = story.lng != null ? story.lng : (lastPos && lastPos.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('need gps');
+      const res = await fetch('api/lore', {
+        method: 'POST',
+        headers: apiHeaders(),
+        body: JSON.stringify({
+          lat, lng,
+          expand: { title: story.title, text: clipForSpeech(story.extract, 900) }
+        })
+      });
+      if (res.status === 402 || res.status === 401) {
+        state.trialActive = false;
+        applyTrialGates();
+        throw new Error('trial ended');
+      }
+      if (!res.ok) throw new Error('lore ' + res.status);
+      const data = await res.json();
+      return data && data.text ? cleanExtract(data.text) : '';
+    }
+
+    async function expandStory(story) {
+      if (!story) return '';
+      const wikiId = story.pageid && String(story.pageid).indexOf('ai:') !== 0;
+      if (wikiId) {
+        try {
+          const pages = await wikiExtracts([story.pageid], { full: true });
+          const page = pages[String(story.pageid)];
+          const extra = extraAfter(story.extract, page && page.extract);
+          if (extra.length >= 80) return extra;
+        } catch { /* fall through to AI */ }
+      }
+      if (!trialIsActive()) return '';
+      return await expandViaAI(story);
+    }
+
     async function getStory(lat, lng, kmh) {
+      // Auto: Wikipedia first, then grounded AI when coverage is thin.
       const src = state.settings.loreSource || 'auto';
-      if (src === 'ai') return await findStoryAI(lat, lng);
-      if (src === 'wikipedia') return await findStory(lat, lng, kmh);
+      const allowAi = trialIsActive();
+      if (src === 'ai') return allowAi ? await findStoryAI(lat, lng) : await findStory(lat, lng, kmh);
+      if (src === 'wikipedia' || !allowAi) return await findStory(lat, lng, kmh);
       let story = null;
       try {
         story = await findStory(lat, lng, kmh);
       } catch { /* fall through to AI */ }
-      if (!story) story = await findStoryAI(lat, lng);
+      if (!story && allowAi) story = await findStoryAI(lat, lng);
       return story;
     }
 
-    function presentStory(story, { speakIt = true } = {}) {
+    function showHero(story, eyebrow) {
       currentStory = story;
-      $('eyebrow').textContent = story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on');
+      $('eyebrow').textContent = eyebrow || (story.ai ? 'Local story' : 'Found nearby');
       $('topic').textContent = story.title;
-      $('excerpt').textContent = clipForSpeech(story.extract, 700);
+      $('excerpt').textContent = clipForSpeech(story.extract, 900);
       $('placeVal').textContent = story.title;
       $('distVal').textContent = story.dist == null ? '—' : (story.dist / 1000).toFixed(1);
       $('placePill').classList.add('live');
       $('btnSkip').disabled = false;
       $('btnReplay').disabled = false;
+      $('btnMore').disabled = false;
+    }
 
-      state.heard[String(story.pageid)] = Date.now();
-      state.log.unshift({
-        t: Date.now(),
-        title: story.title,
-        extract: clipForSpeech(story.extract, 160),
-        url: story.url,
-        dist: story.dist,
-        ai: !!story.ai,
-        sources: Array.isArray(story.sources) ? story.sources.slice(0, 3) : []
-      });
-      if (state.log.length > 40) state.log.length = 40;
-      saveState();
-      renderLog();
+    function storyLine(story, extraOnly) {
+      const body = clipForSpeech(extraOnly || story.extract, extraOnly ? 700 : 520);
+      return extraOnly ? body : (story.title + '. ' + body);
+    }
 
-      if (speakIt && state.settings.auto) {
-        const line = story.title + '. ' + clipForSpeech(story.extract, 520);
-        speak(line);
+    function speakStory(story, extraOnly) {
+      const kind = extraOnly ? 'more' : 'main';
+      const voice = state.settings.geminiVoice || 'Kore';
+      speak(storyLine(story, extraOnly), null, audioKey(story.pageid, kind, voice));
+    }
+
+    function presentStory(story, { speakIt = true, recordLog = true } = {}) {
+      showHero(story, story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on'));
+
+      if (recordLog) {
+        state.heard[String(story.pageid)] = Date.now();
+        state.log = state.log.filter(item => String(item.pageid) !== String(story.pageid));
+        state.log.unshift({
+          t: Date.now(),
+          pageid: story.pageid,
+          title: story.title,
+          extract: story.extract,
+          url: story.url,
+          dist: story.dist,
+          ai: !!story.ai,
+          sources: Array.isArray(story.sources) ? story.sources.slice(0, 3) : [],
+          lat: story.lat,
+          lng: story.lng
+        });
+        if (state.log.length > LOG_KEEP) state.log.length = LOG_KEEP;
+        saveState();
+        renderLog();
+        if (speakIt) {
+          tripStoryCount += 1;
+          maybeAskFrequency();
+        }
       }
+
+      if (speakIt && state.settings.auto) speakStory(story);
+    }
+
+    function logItemToStory(item) {
+      return {
+        pageid: item.pageid,
+        title: item.title,
+        extract: item.extract,
+        url: item.url,
+        dist: item.dist,
+        ai: !!item.ai,
+        sources: item.sources || [],
+        lat: item.lat,
+        lng: item.lng
+      };
     }
 
     function renderLog() {
@@ -980,7 +1483,7 @@
         box.innerHTML = '<div class="empty">Nothing narrated yet.</div>';
         return;
       }
-      box.innerHTML = state.log.slice(0, 12).map(item => {
+      box.innerHTML = state.log.slice(0, LOG_KEEP).map((item, idx) => {
         const when = new Date(item.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const dist = item.dist == null ? '' : ` · ${(item.dist / 1000).toFixed(1)} km`;
         let links;
@@ -993,8 +1496,12 @@
         } else {
           links = `<a class="wiki" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Wikipedia</a>`;
         }
-        return `<div class="log-item"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(when)}${dist} — ${escapeHtml(item.extract)}</span>
-          <div style="margin-top:6px">${links}</div></div>`;
+        return `<div class="log-item"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(when)}${dist} — ${escapeHtml(clipForSpeech(item.extract, 160))}</span>
+          <div style="margin-top:6px">${links}</div>
+          <div class="log-actions">
+            <button type="button" data-replay="${idx}">Replay</button>
+            <button type="button" data-more="${idx}">More</button>
+          </div></div>`;
       }).join('');
     }
 
@@ -1002,6 +1509,61 @@
       const label = 'v' + APP_VERSION;
       $('appVersionHome').textContent = label;
       $('appVersionSettings').textContent = label;
+    }
+
+    function parseVer(s) {
+      return String(s || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    }
+
+    function isNewerVersion(remote, local) {
+      const a = parseVer(remote);
+      const b = parseVer(local);
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const x = a[i] || 0;
+        const y = b[i] || 0;
+        if (x > y) return true;
+        if (x < y) return false;
+      }
+      return false;
+    }
+
+    function laterUpdateVer() {
+      try { return sessionStorage.getItem(UPDATE_LATER_KEY) || ''; } catch {
+        return '';
+      }
+    }
+
+    function laterUpdateId() {
+      return updatePendingVer || (updateFromSW ? 'waiting' : '');
+    }
+
+    function maybeShowUpdate() {
+      if (!updateFromSW && !updatePendingVer) return;
+      if (!updateFromSW && !isNewerVersion(updatePendingVer, APP_VERSION)) return;
+      if (updatePrompted) return;
+      if (laterUpdateVer()) return;
+      if ($('intro').classList.contains('active')) return;
+      if ($('freqModal').classList.contains('open')) return;
+      if ($('qrModal').classList.contains('open')) return;
+      updatePrompted = true;
+      const shown = updatePendingVer && isNewerVersion(updatePendingVer, APP_VERSION)
+        ? updatePendingVer
+        : '';
+      $('updateCopy').textContent = shown
+        ? 'Road Lore v' + shown + ' is ready.'
+        : 'A new version of Road Lore is ready.';
+      $('updateModal').classList.add('open');
+    }
+
+    function noteAvailableUpdate(ver) {
+      const next = String(ver || '').replace(/^v/i, '');
+      if (next) updatePendingVer = next;
+      maybeShowUpdate();
+    }
+
+    function noteWaitingWorker() {
+      updateFromSW = true;
+      maybeShowUpdate();
     }
 
     function updateVoicePanels() {
@@ -1022,7 +1584,6 @@
 
     function renderSettings() {
       $('radiusKm').value = state.settings.radiusKm;
-      $('minGapKm').value = state.settings.minGapKm;
       $('rate').value = state.settings.rate;
       $('voiceEngine').value = state.settings.voiceEngine || 'device';
       $('loreSource').value = state.settings.loreSource || 'auto';
@@ -1030,10 +1591,43 @@
       populateGeminiVoices();
       updateVoicePanels();
       renderVersion();
+      const trialOver = !trialIsActive() && !!state.trialEnds;
+      $('voiceEngine').querySelector('option[value="gemini"]').disabled = trialOver;
+      $('loreSource').querySelector('option[value="ai"]').disabled = trialOver;
+      const hint = $('trialHint');
+      if (hint) hint.textContent = trialHintText();
       $('noRepeatToggle').classList.toggle('on', state.settings.noRepeat !== false);
       $('autoToggle').classList.toggle('on', state.settings.auto);
       $('wakeToggle').classList.toggle('on', state.settings.wakeLock);
       $('btnMute').textContent = state.settings.muted ? '🔇' : '🔊';
+      const km = snapFreq(state.settings.minGapKm);
+      $('freqSeg').querySelectorAll('button').forEach(btn => {
+        btn.classList.toggle('on', Number(btn.dataset.km) === km);
+      });
+      $('freqCaption').textContent = 'A story about every ' + km + ' km · ' + freqLabel(km);
+      $('themeSeg').querySelectorAll('button').forEach(btn => {
+        btn.classList.toggle('on', btn.dataset.theme === (state.settings.appearance || 'auto'));
+      });
+    }
+
+    function maybeAskFrequency() {
+      if (state.settings.freqPrompted) return;
+      if (tripStoryCount !== 3) return;
+      $('freqModal').classList.add('open');
+    }
+
+    function closeFreqPrompt() {
+      $('freqModal').classList.remove('open');
+      maybeShowUpdate();
+    }
+
+    function answerFreq(choice) {
+      if (choice === 'more') state.settings.minGapKm = 0.5;
+      if (choice === 'less') state.settings.minGapKm = nextSparser(state.settings.minGapKm);
+      state.settings.freqPrompted = true;
+      saveState();
+      renderSettings();
+      closeFreqPrompt();
     }
 
     function canTellAnother(pos) {
@@ -1043,7 +1637,7 @@
     }
 
     async function maybeLookup(pos, kmh) {
-      if (!tripOn || lookupBusy || speaking) return;
+      if (!tripOn || lookupBusy || speaking || introPlaying) return;
       if (!state.settings.auto) return;
       if (!canTellAnother(pos)) return;
       const now = Date.now();
@@ -1096,11 +1690,18 @@
 
       if (prev) tripMeters += haversine(prev, { lat, lng });
       lastPos = { lat, lng, t: now, kmh };
+      applyTheme();
 
       $('speedVal').textContent = Math.round(kmh).toString();
       $('tripStatus').textContent = 'Trip ' + formatKm(tripMeters) + ' km';
       setGps(typeof accuracy === 'number' && accuracy > 80 ? 'GPS weak' : 'GPS live',
         typeof accuracy === 'number' && accuracy > 80 ? 'warn' : 'on');
+
+      if (pendingIntroLore) {
+        pendingIntroLore = false;
+        playIntroThenLore();
+        return;
+      }
 
       if (now - lastSampleAt < SAMPLE_MIN_MS) return;
       lastSampleAt = now;
@@ -1111,7 +1712,8 @@
       setGps(err.code === 1 ? 'Location denied' : 'GPS error', 'bad');
     }
 
-    function startTrip() {
+    function startTrip(opts) {
+      const fromIntro = !!(opts && opts.fromIntro);
       if (!('geolocation' in navigator)) {
         setGps('No geolocation', 'bad');
         return;
@@ -1121,12 +1723,14 @@
       if (getAudioCtx()?.state === 'suspended') getAudioCtx().resume().catch(() => {});
       tripOn = true;
       tripMeters = 0;
+      tripStoryCount = 0;
       lastStoryAtPos = null;
       lastLookupAt = 0;
+      pendingIntroLore = fromIntro;
       $('btnTrip').textContent = 'End trip';
       $('btnTrip').classList.remove('primary');
       $('btnTrip').classList.add('danger');
-      $('eyebrow').textContent = 'Trip started';
+      $('eyebrow').textContent = fromIntro ? 'A word before we begin' : 'Trip started';
       $('btnSkip').disabled = false;
       setGps('Acquiring GPS…', 'warn');
       requestWakeLock();
@@ -1139,40 +1743,10 @@
       watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
     }
 
-    function endTrip() {
-      tripOn = false;
-      if (watchId != null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-      stopSpeech();
-      releaseWakeLock();
-      $('btnTrip').textContent = 'Start trip';
-      $('btnTrip').classList.add('primary');
-      $('btnTrip').classList.remove('danger');
-      $('btnSkip').disabled = true;
-      setGps('GPS idle', '');
-      setVoiceStatus(state.settings.muted ? 'Muted' : 'Voice ready');
-      $('eyebrow').textContent = 'Trip ended';
-    }
-
-    // Events
-    $('btnTrip').addEventListener('click', () => {
-      if (tripOn) endTrip();
-      else startTrip();
-    });
-
-    $('btnSkip').addEventListener('click', async () => {
-      if (lookupBusy) return;
-      stopSpeech();
-      lastStoryAtPos = null;
-      lastLookupAt = 0;
-      if (!lastPos) {
-        setGps('Need GPS first…', 'warn');
-        return;
-      }
+    async function lookupNearby(reason) {
+      if (!lastPos || lookupBusy) return;
       lookupBusy = true;
-      setGps('Looking up lore…', 'warn');
+      setGps(reason || 'Looking up lore…', 'warn');
       try {
         const story = await getStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
         if (story) {
@@ -1187,13 +1761,101 @@
       } finally {
         lookupBusy = false;
       }
+    }
+
+    function playIntroThenLore() {
+      const voice = state.settings.geminiVoice || 'Kore';
+      introPlaying = true;
+      $('eyebrow').textContent = 'A word before we begin';
+      $('topic').textContent = 'Road Lore';
+      $('excerpt').textContent =
+        'A passenger companion drawing on local history and the open web. Generated voice; names may be mis-said, and a detail may occasionally be imperfect.';
+      speak(INTRO_SPEECH, () => {
+        introPlaying = false;
+        lookupNearby('Looking up lore…');
+      }, audioKey('intro', 'disclaimer', voice));
+    }
+
+    function endTrip() {
+      pendingIntroLore = false;
+      introPlaying = false;
+      tripOn = false;
+      if (watchId != null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      stopSpeech();
+      releaseWakeLock();
+      $('btnTrip').textContent = 'Start trip';
+      $('btnTrip').classList.add('primary');
+      $('btnTrip').classList.remove('danger');
+      $('btnSkip').disabled = true;
+      $('btnMore').disabled = !currentStory;
+      setGps('GPS idle', '');
+      setVoiceStatus(state.settings.muted ? 'Muted' : 'Voice ready');
+      $('eyebrow').textContent = 'Trip ended';
+    }
+
+    // Events
+    $('btnTrip').addEventListener('click', () => {
+      if (tripOn) endTrip();
+      else startTrip();
+    });
+
+    $('btnIntroStart').addEventListener('click', () => {
+      state.settings.seenIntro = true;
+      saveState();
+      showScreen('home');
+      startTrip({ fromIntro: true });
+    });
+
+    $('btnSkip').addEventListener('click', async () => {
+      if (lookupBusy || introPlaying) return;
+      stopSpeech();
+      lastStoryAtPos = null;
+      lastLookupAt = 0;
+      if (!lastPos) {
+        setGps('Need GPS first…', 'warn');
+        return;
+      }
+      lookupNearby('Looking up lore…');
     });
 
     $('btnReplay').addEventListener('click', () => {
       if (!currentStory) return;
-      const line = currentStory.title + '. ' + clipForSpeech(currentStory.extract, 520);
-      speak(line);
+      speakStory(currentStory);
     });
+
+    async function requestMore(story) {
+      if (!story || moreBusy || lookupBusy) return;
+      moreBusy = true;
+      $('btnMore').disabled = true;
+      $('eyebrow').textContent = 'Finding more…';
+      try {
+        const extra = await expandStory(story);
+        if (!extra) {
+          $('eyebrow').textContent = 'Nothing more just now';
+          return;
+        }
+        story.extract = (story.extract ? story.extract + ' ' : '') + extra;
+        if (currentStory && String(currentStory.pageid) === String(story.pageid)) {
+          currentStory.extract = story.extract;
+        }
+        const logItem = state.log.find(item => String(item.pageid) === String(story.pageid));
+        if (logItem) logItem.extract = story.extract;
+        saveState();
+        showHero(story, 'A little more');
+        renderLog();
+        speakStory(story, extra);
+      } catch {
+        $('eyebrow').textContent = 'Couldn’t find more';
+      } finally {
+        moreBusy = false;
+        $('btnMore').disabled = !currentStory;
+      }
+    }
+
+    $('btnMore').addEventListener('click', () => requestMore(currentStory));
 
     $('btnMute').addEventListener('click', () => {
       state.settings.muted = !state.settings.muted;
@@ -1219,8 +1881,24 @@
       });
     }
     bindNum('radiusKm', 'radiusKm', 2, 10);
-    bindNum('minGapKm', 'minGapKm', 0.5, 30);
     bindNum('rate', 'rate', 0.7, 1.4);
+
+    $('freqSeg').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-km]');
+      if (!btn) return;
+      state.settings.minGapKm = Number(btn.dataset.km);
+      saveState();
+      renderSettings();
+    });
+
+    $('themeSeg').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-theme]');
+      if (!btn) return;
+      state.settings.appearance = btn.dataset.theme;
+      saveState();
+      applyTheme();
+      renderSettings();
+    });
 
     $('voiceSelect').addEventListener('change', () => {
       state.settings.voiceURI = $('voiceSelect').value;
@@ -1229,13 +1907,20 @@
 
     $('voiceEngine').addEventListener('change', () => {
       state.settings.voiceEngine = $('voiceEngine').value;
+      if (state.settings.voiceEngine === 'gemini' && !trialIsActive()) {
+        state.settings.voiceEngine = 'device';
+      }
       saveState();
       renderSettings();
     });
 
     $('loreSource').addEventListener('change', () => {
       state.settings.loreSource = $('loreSource').value;
+      if (state.settings.loreSource === 'ai' && !trialIsActive()) {
+        state.settings.loreSource = 'wikipedia';
+      }
       saveState();
+      renderSettings();
     });
 
     $('noRepeatToggle').addEventListener('click', () => {
@@ -1272,6 +1957,7 @@
       state.log = [];
       saveState();
       renderLog();
+      clearAudioStore();
     });
 
     function shareUrl() {
@@ -1300,6 +1986,7 @@
 
     function closeQr() {
       $('qrModal').classList.remove('open');
+      maybeShowUpdate();
     }
 
     function copyShareUrl() {
@@ -1348,9 +2035,65 @@
       window.open(SUPPORT_URL, '_blank', 'noopener,noreferrer');
     });
 
+    $('heardLog').addEventListener('click', e => {
+      const replay = e.target.closest('[data-replay]');
+      const more = e.target.closest('[data-more]');
+      if (replay) {
+        const item = state.log[Number(replay.dataset.replay)];
+        if (!item) return;
+        const story = logItemToStory(item);
+        showHero(story, 'Replay');
+        speakStory(story);
+        return;
+      }
+      if (more) {
+        const item = state.log[Number(more.dataset.more)];
+        if (!item) return;
+        const story = logItemToStory(item);
+        showHero(story, 'Finding more…');
+        requestMore(story);
+      }
+    });
+
+    $('freqMore').addEventListener('click', () => answerFreq('more'));
+    $('freqOk').addEventListener('click', () => answerFreq('ok'));
+    $('freqLess').addEventListener('click', () => answerFreq('less'));
+    $('freqDismiss').addEventListener('click', () => answerFreq('ok'));
+    $('freqModal').addEventListener('click', e => {
+      if (e.target === $('freqModal')) answerFreq('ok');
+    });
+
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && tripOn) requestWakeLock();
+      if (document.visibilityState === 'visible') applyTheme();
     });
+
+    $('updateNow').addEventListener('click', async () => {
+      $('updateModal').classList.remove('open');
+      updateReloading = true;
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        let waiting = false;
+        for (const r of regs) {
+          if (r.waiting) {
+            waiting = true;
+            r.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }
+        if (!waiting) location.reload();
+      } catch {
+        location.reload();
+      }
+    });
+    $('updateLater').addEventListener('click', () => {
+      try { sessionStorage.setItem(UPDATE_LATER_KEY, laterUpdateId()); } catch {}
+      updatePrompted = false;
+      $('updateModal').classList.remove('open');
+    });
+
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme());
+    }
 
     if ('speechSynthesis' in window) {
       populateVoices();
@@ -1358,12 +2101,69 @@
     }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js?v=' + APP_VERSION).catch(() => {});
+      function watchReg(reg) {
+        if (!reg) return;
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          noteWaitingWorker();
+        }
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              noteWaitingWorker();
+            }
+          });
+        });
+      }
+
+      async function checkRemoteVersion() {
+        try {
+          const res = await fetch('./version.json', { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = await res.json();
+          const remote = String(data.version || '').replace(/^v/i, '');
+          if (remote && isNewerVersion(remote, APP_VERSION)) noteAvailableUpdate(remote);
+        } catch {}
+      }
+
+      async function pingUpdates() {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.update().catch(() => {})));
+        } catch {}
+        await checkRemoteVersion();
+      }
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!updateReloading) return;
+        location.reload();
+      });
+
+      (async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          regs.forEach(watchReg);
+          // Canonical URL (no ?v=) so older installs and new ones share one update channel.
+          // Pages ignores query strings; versioned URLs used to split registrations.
+          const reg = await navigator.serviceWorker.register('./service-worker.js');
+          watchReg(reg);
+          await pingUpdates();
+        } catch {}
+      })();
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') pingUpdates();
+      });
     }
 
+    applyTheme();
     renderVersion();
     renderSettings();
     renderLog();
+    showScreen(state.settings.seenIntro ? 'home' : 'intro');
+    ensureDeviceId();
+    refreshTrial();
   </script>
 </body>
 </html>
