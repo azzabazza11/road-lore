@@ -2,11 +2,13 @@
 
 Phone-first **travel companion** that looks up nearby places and narrates a short local intro as you drive.
 
-**Live app (install this):** **https://road-lore-528520900686.australia-southeast1.run.app/**
+**Live app (install this):** **https://azzabazza11.github.io/road-lore/**
 
 ![Scan to open Road Lore](share-qr.png)
 
-That URL is **Google Cloud Run**. It serves the PWA and the Gemini voice / AI-story APIs from one origin. GitHub holds the source; merging to `main` is what should update the live app (see deploy below). The old Pages address [github.io/road-lore](https://azzabazza11.github.io/road-lore/) redirects to Cloud Run.
+That is **GitHub Pages**. Merging to `main` updates it in a minute — this is the URL the QR opens.
+
+**Cloud Run** (`https://road-lore-528520900686.australia-southeast1.run.app/`) is the Gemini voice server. It is **not** updated on merge until GitHub secret `GCP_SA_KEY` is set (the Action then deploys). Until that happens, Cloud Run can sit on an old build (it was v1.1.0 when the QR first pointed there). Do not send people to Cloud Run for the current UI.
 
 ## Local
 
@@ -29,25 +31,25 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - Screen wake lock while travelling (optional)
 - Light / dark / auto (follows day and night from GPS)
 - Installed app asks before updating when a newer version is on the server
-- **Share QR** — copy the live Cloud Run link, support on Ko-fi, or open More apps
+- **Share QR** — copy the live Pages link, support on Ko-fi, or open More apps
 - Install from Chrome on Android, or Safari Add to Home Screen on iPhone
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
 
 ## Android
 
-1. Open the **Cloud Run** URL in **Chrome** (not Samsung Internet)
+1. Open the **Pages** URL in **Chrome** (not Samsung Internet)
 2. Allow **location**
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. Chrome menu → **Install app** / **Add to Home screen**
 
-If you previously installed from GitHub Pages, remove that home-screen icon and install again from Cloud Run so Gemini and updates stay on one origin.
+If you previously installed from Cloud Run (the `.run.app` URL), that copy can stay on v1.1.0. Remove that icon and install again from GitHub Pages.
 
 Samsung Internet may still warn that the WebAPK targets an older Android API. That warning is the browser’s installer, not Road Lore. Use Chrome.
 
 ## iPhone / iPad
 
-1. Open the **Cloud Run** URL in **Safari**
+1. Open the **Pages** URL in **Safari**
 2. Allow **location** when asked
 3. Share → **Add to Home Screen** → Add
 4. Open **Road Lore** from the home screen
@@ -62,15 +64,15 @@ Web apps cannot read a phone’s MAC address. Road Lore keeps a private random d
 
 ## Gemini AI voice
 
-Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. Users never hold an API key. The browser calls `POST /api/tts` on the same origin.
+Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. Users never hold an API key. The GitHub Pages install uses the **device voice** until Cloud Run is deployed from `main` and the phone opens that origin (or we wire Pages to call Cloud Run).
 
 **Never commit the key.** It lives in Google Secret Manager as `GEMINI_API_KEY` (and in a local `.env` for laptop testing).
 
 ## How GitHub and Google fit together
 
 1. You merge a PR into `main` on GitHub.
-2. A GitHub Action deploys that commit to Cloud Run (`road-lore` in `australia-southeast1`).
-3. Phones opening the `.run.app` URL get the new UI **and** the voice APIs.
+2. **GitHub Pages** updates — that is what the QR and hub should open.
+3. A GitHub Action **also** deploys Cloud Run, but only after `GCP_SA_KEY` is set. That is what Gemini voice needs.
 
 Until the Action has credentials, a merge does **not** update Cloud Run. Add this **once**:
 
