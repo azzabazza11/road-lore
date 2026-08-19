@@ -1,5 +1,6 @@
 # Never ship secrets or local cruft into the image
 .git
+.github
 .gitignore
 .env
 .env.*

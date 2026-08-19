@@ -1,0 +1,48 @@
+# Deploy the live app to Cloud Run when main is updated.
+# One-time: add repo secret GCP_SA_KEY (JSON key for a deploy service account).
+# Until that secret exists, this job succeeds without deploying.
+
+name: Deploy Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check deploy credentials
+        id: creds
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "$GCP_SA_KEY" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "GCP_SA_KEY is not set. Add it under Settings → Secrets to deploy on merge."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.present == 'true'
+
+      - uses: google-github-actions/auth@v2
+        if: steps.creds.outputs.present == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/deploy-cloudrun@v2
+        if: steps.creds.outputs.present == 'true'
+        with:
+          service: road-lore
+          region: australia-southeast1
+          source: .
+          flags: --allow-unauthenticated --max-instances=5

@@ -1,10 +1,10 @@
 {
-  "id": "https://azzabazza11.github.io/road-lore/",
+  "id": "https://road-lore-528520900686.australia-southeast1.run.app/",
   "name": "Road Lore",
   "short_name": "Road Lore",
   "lang": "en",
   "dir": "ltr",
-  "description": "Travel companion that narrates local history and interesting places as you drive. v1.3.2",
+  "description": "Travel companion that narrates local history and interesting places as you drive. v1.3.3",
   "start_url": "./index.html?homescreen=1",
   "scope": "./",
   "display": "standalone",
