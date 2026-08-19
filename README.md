@@ -32,7 +32,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - Light / dark / auto (follows day and night from GPS)
 - Installed app asks before updating when a newer version is on the server
 - **Share QR** — copy the live Pages link, support on Ko-fi, or open More apps
-- Install from Chrome on Android, or Safari Add to Home Screen on iPhone
+- Install from Chrome on Android, or Safari Add to Home Screen on iPhone (**Install on phone** in the app)
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
 
@@ -54,7 +54,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Road Lore** from the home screen
 
-Version: **1.3.3**
+Version: **1.3.4**
 
 Installed copies stay on the version they have until you tap **Update**. Settings and the story log are unchanged.
 
