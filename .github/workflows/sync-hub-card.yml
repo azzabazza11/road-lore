@@ -45,18 +45,18 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
-          # Embed token in clone URL so push also uses it
+          # actions/checkout sets a global credential helper that intercepts ALL
+          # github.com git operations and strips embedded tokens from URLs.
+          # Override it so hub operations use the PAT directly via the URL.
+          git config --global credential.helper ""
+          git config --global "url.https://${HUB_TOKEN}@github.com/.insteadOf" "https://github.com/"
+
           git clone --depth 1 \
-            "https://${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git" \
+            "https://github.com/azzabazza11/azzabazza11.github.io.git" \
             hub
 
-          # Make sure push also uses the token (not ssh or cached creds)
           cd hub
-          git remote set-url origin \
-            "https://${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git"
-
           BRANCH="passenger-tales-v${VERSION}"
-          # Delete remote branch if it already exists (idempotent re-run)
           git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
 
