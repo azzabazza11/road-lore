@@ -1,7 +1,7 @@
 # Keeps the Passenger Tales card on https://azzabazza11.github.io/apps/
 # up to date whenever main changes version.json.
 #
-# Prerequisite: repo secret HUB_TOKEN — a classic PAT with repo scope.
+# Prerequisite: repo secret HUB_KEY_TOKEN — a classic PAT with repo scope.
 
 name: Sync Passenger Tales hub card
 
@@ -18,15 +18,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Check HUB_TOKEN
+      - name: Check HUB_KEY_TOKEN
         env:
-          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+          HUB_KEY_TOKEN: ${{ secrets.HUB_KEY_TOKEN }}
         run: |
-          if [ -z "$HUB_TOKEN" ]; then
-            echo "HUB_TOKEN not set — skipping hub sync."
+          if [ -z "$HUB_KEY_TOKEN" ]; then
+            echo "HUB_KEY_TOKEN not set — skipping hub sync."
             exit 0
           fi
-          echo "HUB_TOKEN found."
+          echo "HUB_KEY_TOKEN found."
 
       - uses: actions/checkout@v4
 
@@ -36,17 +36,17 @@ jobs:
 
       - name: Sync hub card
         env:
-          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+          HUB_KEY_TOKEN: ${{ secrets.HUB_KEY_TOKEN }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           set -euo pipefail
 
-          # actions/checkout injects a global credential helper that overrides
-          # any token we embed in git URLs. Remove it, then set our PAT via
-          # git's url.<>.insteadOf so every fetch/push to github.com uses it.
+          # actions/checkout injects a LOCAL credential helper (extraheader) that
+          # overrides any token for github.com operations. Unset it globally and
+          # inject our PAT via url.insteadOf so all git operations use it.
           git config --global --unset-all "http.https://github.com/.extraheader" || true
           git config --global credential.helper ""
-          git config --global "url.https://${HUB_TOKEN}@github.com/.insteadOf" "https://github.com/"
+          git config --global "url.https://${HUB_KEY_TOKEN}@github.com/.insteadOf" "https://github.com/"
 
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
@@ -70,7 +70,7 @@ jobs:
           git push origin "$BRANCH"
 
           curl -s -X POST \
-            -H "Authorization: token ${HUB_TOKEN}" \
+            -H "Authorization: token ${HUB_KEY_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/azzabazza11/azzabazza11.github.io/pulls \
             -d "{
