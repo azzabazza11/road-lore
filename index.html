@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Road Lore" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.3.0" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.3.1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
@@ -653,8 +653,19 @@
     </div>
   </div>
 
+  <div id="updateModal" class="sheet">
+    <div class="sheet-card">
+      <h3>New version</h3>
+      <p><span id="updateCopy">A new version of Road Lore is ready.</span> Update now?</p>
+      <div class="sheet-stack">
+        <button type="button" class="primary" id="updateNow">Update</button>
+        <button type="button" id="updateLater">Later</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const APP_VERSION = '1.3.0';
+    const APP_VERSION = '1.3.1';
     const SUPPORT_URL = 'https://ko-fi.com/aaroncallinan';
     const STORE_KEY = 'road-lore-v1';
     const WIKI = 'https://en.wikipedia.org/w/api.php';
@@ -666,6 +677,7 @@
     const FREQ_STOPS = [0.5, 6, 16];
     const AUDIO_DB = 'road-lore-audio';
     const AUDIO_STORE = 'clips';
+    const UPDATE_LATER_KEY = 'road-lore-update-later';
 
     const $ = id => document.getElementById(id);
 
@@ -737,6 +749,10 @@
     let audioDbPromise = null;
     let pendingIntroLore = false;
     let introPlaying = false;
+    let updatePendingVer = '';
+    let updatePrompted = false;
+    let updateReloading = false;
+    let updateFromSW = false;
 
     const INTRO_SPEECH =
       'Road Lore is a passenger companion, not a navigator. ' +
@@ -889,6 +905,7 @@
 
     function showScreen(name) {
       ['intro', 'home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
+      if (name !== 'intro') maybeShowUpdate();
     }
 
     function haversine(a, b) {
@@ -1494,6 +1511,61 @@
       $('appVersionSettings').textContent = label;
     }
 
+    function parseVer(s) {
+      return String(s || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    }
+
+    function isNewerVersion(remote, local) {
+      const a = parseVer(remote);
+      const b = parseVer(local);
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const x = a[i] || 0;
+        const y = b[i] || 0;
+        if (x > y) return true;
+        if (x < y) return false;
+      }
+      return false;
+    }
+
+    function laterUpdateVer() {
+      try { return sessionStorage.getItem(UPDATE_LATER_KEY) || ''; } catch {
+        return '';
+      }
+    }
+
+    function laterUpdateId() {
+      return updatePendingVer || (updateFromSW ? 'waiting' : '');
+    }
+
+    function maybeShowUpdate() {
+      if (!updateFromSW && !updatePendingVer) return;
+      if (!updateFromSW && !isNewerVersion(updatePendingVer, APP_VERSION)) return;
+      if (updatePrompted) return;
+      if (laterUpdateVer()) return;
+      if ($('intro').classList.contains('active')) return;
+      if ($('freqModal').classList.contains('open')) return;
+      if ($('qrModal').classList.contains('open')) return;
+      updatePrompted = true;
+      const shown = updatePendingVer && isNewerVersion(updatePendingVer, APP_VERSION)
+        ? updatePendingVer
+        : '';
+      $('updateCopy').textContent = shown
+        ? 'Road Lore v' + shown + ' is ready.'
+        : 'A new version of Road Lore is ready.';
+      $('updateModal').classList.add('open');
+    }
+
+    function noteAvailableUpdate(ver) {
+      const next = String(ver || '').replace(/^v/i, '');
+      if (next) updatePendingVer = next;
+      maybeShowUpdate();
+    }
+
+    function noteWaitingWorker() {
+      updateFromSW = true;
+      maybeShowUpdate();
+    }
+
     function updateVoicePanels() {
       const gemini = state.settings.voiceEngine === 'gemini';
       $('deviceVoicePanel').classList.toggle('active', !gemini);
@@ -1546,6 +1618,7 @@
 
     function closeFreqPrompt() {
       $('freqModal').classList.remove('open');
+      maybeShowUpdate();
     }
 
     function answerFreq(choice) {
@@ -1913,6 +1986,7 @@
 
     function closeQr() {
       $('qrModal').classList.remove('open');
+      maybeShowUpdate();
     }
 
     function copyShareUrl() {
@@ -1994,6 +2068,29 @@
       if (document.visibilityState === 'visible') applyTheme();
     });
 
+    $('updateNow').addEventListener('click', async () => {
+      $('updateModal').classList.remove('open');
+      updateReloading = true;
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        let waiting = false;
+        for (const r of regs) {
+          if (r.waiting) {
+            waiting = true;
+            r.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }
+        if (!waiting) location.reload();
+      } catch {
+        location.reload();
+      }
+    });
+    $('updateLater').addEventListener('click', () => {
+      try { sessionStorage.setItem(UPDATE_LATER_KEY, laterUpdateId()); } catch {}
+      updatePrompted = false;
+      $('updateModal').classList.remove('open');
+    });
+
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme());
     }
@@ -2004,7 +2101,60 @@
     }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js?v=' + APP_VERSION).catch(() => {});
+      function watchReg(reg) {
+        if (!reg) return;
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          noteWaitingWorker();
+        }
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              noteWaitingWorker();
+            }
+          });
+        });
+      }
+
+      async function checkRemoteVersion() {
+        try {
+          const res = await fetch('./version.json', { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = await res.json();
+          const remote = String(data.version || '').replace(/^v/i, '');
+          if (remote && isNewerVersion(remote, APP_VERSION)) noteAvailableUpdate(remote);
+        } catch {}
+      }
+
+      async function pingUpdates() {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.update().catch(() => {})));
+        } catch {}
+        await checkRemoteVersion();
+      }
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!updateReloading) return;
+        location.reload();
+      });
+
+      (async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          regs.forEach(watchReg);
+          // Canonical URL (no ?v=) so older installs and new ones share one update channel.
+          // Pages ignores query strings; versioned URLs used to split registrations.
+          const reg = await navigator.serviceWorker.register('./service-worker.js');
+          watchReg(reg);
+          await pingUpdates();
+        } catch {}
+      })();
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') pingUpdates();
+      });
     }
 
     applyTheme();

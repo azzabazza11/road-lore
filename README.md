@@ -29,6 +29,7 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - Last five stories kept on-device, including Gemini audio so replay does not regenerate
 - First-run welcome, then a short spoken note and a story from where you are
 - One-week complimentary generated voice (Cloud Run), then free on-device voice
+- Installed app asks before updating when a newer version is on the server
 - **Share QR** — copy the live link, support on Ko-fi, or open More apps
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
@@ -40,7 +41,9 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.3.0**
+Version: **1.3.1**
+
+Installed copies stay on the version they have until you tap **Update** on the in-app prompt. They keep working with older builds; settings and the story log are unchanged.
 
 ## Complimentary week, then free voice
 
