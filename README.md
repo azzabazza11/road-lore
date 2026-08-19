@@ -21,9 +21,12 @@ Open **http://localhost:8080/** — geolocation + Wikipedia need network; GPS ne
 - **Nearby lore** — Wikipedia places within ~10 km (API limit)
 - **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search), great where Wikipedia is thin
 - **Narration** — short spoken intro via the device voice (mute / skip / replay)
-- **Spacing** — won’t chatter every corner; min distance between stories
-- **Log** — what you’ve heard this trip, with Wikipedia links
+- **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
+- **Log** — last five stories, replay or hear more
 - Screen wake lock while travelling (optional)
+- Light / dark / auto (follows day and night from GPS)
+- **More** — flesh out the current find (Wikipedia rest, then AI)
+- Last five stories kept on-device, including Gemini audio so replay does not regenerate
 - **Share QR** — copy the live link, support on Ko-fi, or open More apps
 
 Passenger / co-pilot use recommended — don’t fiddle with the phone while driving.
@@ -35,7 +38,7 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 3. Tap **Start trip**, then **Test voice** once in Settings if needed
 4. **Install** / Add to Home screen
 
-Version: **1.1.0**
+Version: **1.2.0**
 
 ## Gemini AI voice (optional)
 
