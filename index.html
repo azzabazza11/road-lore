@@ -3,17 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-  <script>
-    (function () {
-      var live = 'https://road-lore-528520900686.australia-southeast1.run.app';
-      var h = location.hostname;
-      if (h === 'localhost' || h === '127.0.0.1') return;
-      if (h.indexOf('.run.app') !== -1) return;
-      if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
-        location.replace(live + '/' + location.search + location.hash);
-      }
-    })();
-  </script>
   <meta name="color-scheme" content="dark light" />
   <meta name="theme-color" content="#10161c" id="themeColor" />
   <meta name="application-name" content="Road Lore" />
@@ -23,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Road Lore" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.3.3" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://api.qrserver.com; connect-src 'self' https://en.wikipedia.org; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
@@ -268,6 +257,15 @@
       color: var(--muted);
       font-size: 0.84rem;
       line-height: 1.4;
+    }
+    .qr-panel { text-align: center; }
+    .qr-panel img {
+      width: 220px;
+      height: 220px;
+      border-radius: 12px;
+      background: #fff;
+      display: block;
+      margin: 4px auto 10px;
     }
     .log {
       display: grid;
@@ -567,6 +565,12 @@
       <span id="tripStatus">Trip 0.0 km</span>
     </div>
 
+    <div class="panel qr-panel">
+      <h2>Scan to open</h2>
+      <img src="./share-qr.png" width="220" height="220" alt="QR code for Road Lore">
+      <p class="hint" id="homeQrUrl"></p>
+    </div>
+
     <div class="panel">
       <h2>Along the way</h2>
       <div class="log" id="heardLog"><div class="empty">Nothing narrated yet.</div></div>
@@ -644,7 +648,7 @@
         <button class="toggle on" id="wakeToggle" type="button" aria-pressed="true"></button>
       </div>
       <p class="hint">Uses Wikipedia near your GPS for short introductions (Wikipedia’s nearby search maxes out at 10 km). Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
-      <p class="hint">Install the live app from <strong>Chrome</strong> (Android) or <strong>Safari → Add to Home Screen</strong> (iPhone). The public URL is Cloud Run, which also serves Gemini voice. GitHub Pages only redirects there.</p>
+      <p class="hint">Install from <strong>Chrome</strong> (Android) or <strong>Safari → Add to Home Screen</strong> (iPhone). Use the GitHub Pages link from the QR. Cloud Run is the Gemini server and stays on an old build until deploy credentials are set.</p>
       <button class="btn" id="btnTestVoice" style="width:100%;margin-top:8px">Test voice</button>
       <button class="btn" id="shareBtn" style="width:100%;margin-top:8px">Share QR</button>
       <button class="btn danger" id="btnReset" style="width:100%;margin-top:8px">Forget heard places</button>
@@ -694,7 +698,7 @@
 
   <script>
     const APP_VERSION = '1.3.3';
-    const LIVE_ORIGIN = 'https://road-lore-528520900686.australia-southeast1.run.app';
+    const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const SUPPORT_URL = 'https://ko-fi.com/aaroncallinan';
     const STORE_KEY = 'road-lore-v1';
     const WIKI = 'https://en.wikipedia.org/w/api.php';
@@ -1538,6 +1542,8 @@
       const label = 'v' + APP_VERSION;
       $('appVersionHome').textContent = label;
       $('appVersionSettings').textContent = label;
+      const qrLabel = $('homeQrUrl');
+      if (qrLabel) qrLabel.textContent = LIVE_ORIGIN + '/';
     }
 
     function parseVer(s) {
@@ -2006,7 +2012,7 @@
       if (label) label.textContent = url;
       if (img) {
         img.alt = 'QR for ' + url;
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=' + encodeURIComponent(url);
+        img.src = './share-qr.png';
       }
       $('qrModal').classList.add('open');
     }
