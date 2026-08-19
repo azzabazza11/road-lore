@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Passenger Tales icon option 2">
+  <rect width="512" height="512" rx="112" fill="#101923"/>
+  <path d="M256 88c77 0 140 61 140 137 0 96-105 183-140 227-35-44-140-131-140-227 0-76 63-137 140-137z" fill="#1e2836" stroke="#43556f" stroke-width="10"/>
+  <path d="M176 194c29-12 53-16 80-16 29 0 54 5 80 16v96c-25-12-49-18-80-18-30 0-54 6-80 18z" fill="#f4dfba"/>
+  <path d="M256 178v94" stroke="#b78643" stroke-width="8"/>
+  <path d="M176 194c25 10 49 16 80 16 31 0 55-6 80-16" fill="none" stroke="#b78643" stroke-width="8"/>
+  <circle cx="256" cy="162" r="18" fill="#7fd6d1"/>
+</svg>

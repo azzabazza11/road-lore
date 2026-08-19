@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Passenger Tales icon option 4">
+  <rect width="512" height="512" rx="112" fill="#0f1620"/>
+  <circle cx="356" cy="132" r="30" fill="#f0d58d"/>
+  <path d="M116 322c42-52 76-82 114-102 44-24 90-27 141-7 25 10 45 25 62 43" fill="none" stroke="#6bcac2" stroke-width="20" stroke-linecap="round"/>
+  <path d="M116 322c34 14 67 22 99 24 44 3 92-6 144-29" fill="none" stroke="#f0b15f" stroke-width="12" stroke-linecap="round" opacity=".95"/>
+  <path d="M176 300h126c20 0 37 12 45 31l10 26H154l8-24c8-20 25-33 44-33z" fill="#f2e1c6"/>
+  <circle cx="196" cy="370" r="26" fill="#15212c" stroke="#f0b15f" stroke-width="10"/>
+  <circle cx="318" cy="370" r="26" fill="#15212c" stroke="#f0b15f" stroke-width="10"/>
+  <path d="M202 270l34-40h66l34 40" fill="none" stroke="#f2e1c6" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
