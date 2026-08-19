@@ -54,7 +54,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Road Lore** from the home screen
 
-Version: **1.3.5**
+Version: **1.3.6**
 
 Installed copies stay on the version they have until you tap **Update**. Settings and the story log are unchanged.
 
