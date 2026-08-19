@@ -56,6 +56,8 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 
 Version: **1.3.6**
 
+The **Road Lore** tile on https://azzabazza11.github.io/apps/ is in repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io) (`apps/index.html`). Bump that card (or run `python3 scripts/sync-hub-road-lore.py`) on every version jump.
+
 Installed copies stay on the version they have until you tap **Update**. Settings and the story log are unchanged.
 
 ## Complimentary week, then free voice
