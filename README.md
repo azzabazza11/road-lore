@@ -54,7 +54,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Road Lore** from the home screen
 
-Version: **1.3.4**
+Version: **1.3.5**
 
 Installed copies stay on the version they have until you tap **Update**. Settings and the story log are unchanged.
 
@@ -64,7 +64,7 @@ Web apps cannot read a phone’s MAC address. Road Lore keeps a private random d
 
 ## Gemini AI voice
 
-Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. Users never hold an API key. The GitHub Pages install uses the **device voice** until Cloud Run is deployed from `main` and the phone opens that origin (or we wire Pages to call Cloud Run).
+Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. The GitHub Pages app calls that server for `/api/tts` and `/api/lore` (the key never ships to the phone). If Cloud Run is unreachable, Test voice falls back to the device voice.
 
 **Never commit the key.** It lives in Google Secret Manager as `GEMINI_API_KEY` (and in a local `.env` for laptop testing).
 

@@ -110,7 +110,7 @@ function allowRequest(req, res) {
     res.writeHead(429, securityHeaders({
       'Content-Type': 'application/json; charset=utf-8',
       'Retry-After': '3600'
-    }));
+    }, req));
     res.end(JSON.stringify({ error: 'Daily limit reached. Please try again tomorrow.' }));
     return false;
   }
@@ -126,7 +126,7 @@ function allowRequest(req, res) {
     res.writeHead(429, securityHeaders({
       'Content-Type': 'application/json; charset=utf-8',
       'Retry-After': String(retry)
-    }));
+    }, req));
     res.end(JSON.stringify({ error: 'Too many requests — slow down a moment.' }));
     return false;
   }
@@ -154,17 +154,32 @@ const MIME = {
   '.css': 'text/css; charset=utf-8'
 };
 
-function securityHeaders(extra) {
+function corsHeaders(req) {
+  const origin = String((req && req.headers && req.headers.origin) || '');
+  const ok = origin === 'https://azzabazza11.github.io' ||
+    /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin);
+  if (!ok) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, x-road-lore-trial',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin'
+  };
+}
+
+function securityHeaders(extra, req) {
   return Object.assign({
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'geolocation=(self), microphone=(), camera=(), payment=(), usb=()'
-  }, extra);
+  }, corsHeaders(req), extra);
 }
 
 function sendJson(res, code, obj) {
-  res.writeHead(code, securityHeaders({ 'Content-Type': 'application/json; charset=utf-8' }));
+  res.writeHead(code, securityHeaders({ 'Content-Type': 'application/json; charset=utf-8' }, res.req));
   res.end(JSON.stringify(obj));
 }
 
@@ -396,18 +411,18 @@ function serveStatic(req, res) {
   if (urlPath === '/') urlPath = '/index.html';
   const filePath = path.join(ROOT, path.normalize(urlPath));
   if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403, securityHeaders({ 'Content-Type': 'text/plain' }));
+    res.writeHead(403, securityHeaders({ 'Content-Type': 'text/plain' }, req));
     res.end('Forbidden');
     return;
   }
   fs.readFile(filePath, (err, buf) => {
     if (err) {
-      res.writeHead(404, securityHeaders({ 'Content-Type': 'text/plain' }));
+      res.writeHead(404, securityHeaders({ 'Content-Type': 'text/plain' }, req));
       res.end('Not found');
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    const headers = securityHeaders({ 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    const headers = securityHeaders({ 'Content-Type': MIME[ext] || 'application/octet-stream' }, req);
     const base = path.basename(filePath);
     if (base === 'manifest.json' || ext === '.webmanifest') {
       headers['Content-Type'] = 'application/manifest+json; charset=utf-8';
@@ -425,11 +440,16 @@ function serveStatic(req, res) {
 
 const server = http.createServer((req, res) => {
   const routePath = req.url.split('?')[0];
+  if (req.method === 'OPTIONS' && routePath.startsWith('/api/')) {
+    res.writeHead(204, securityHeaders({}, req));
+    res.end();
+    return;
+  }
   if (req.method === 'POST' && routePath === '/api/session') return handleSession(req, res);
   if (req.method === 'POST' && routePath === '/api/tts') return handleTts(req, res);
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
   if (req.method === 'GET') return serveStatic(req, res);
-  res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }));
+  res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }, req));
   res.end('Method not allowed');
 });
 
