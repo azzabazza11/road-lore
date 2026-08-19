@@ -12,6 +12,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -31,6 +32,63 @@ const GEMINI_TEXT_URL =
 const RATE_WINDOW_MS = Number(process.env.RATE_WINDOW_MS) || 60000; // 1 minute
 const RATE_MAX = Number(process.env.RATE_MAX) || 20;                // per IP / window
 const DAILY_CAP = Number(process.env.DAILY_CAP) || 500;            // per instance / UTC day
+const TRIAL_MS = Number(process.env.TRIAL_MS) || 7 * 24 * 60 * 60 * 1000;
+
+function trialSecret() {
+  return process.env.TRIAL_SECRET || process.env.GEMINI_API_KEY || 'road-lore-dev-trial';
+}
+
+function signTrial(payload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', trialSecret()).update(body).digest('base64url');
+  return body + '.' + sig;
+}
+
+function verifyTrial(token) {
+  const raw = String(token || '');
+  const dot = raw.lastIndexOf('.');
+  if (dot < 1) return null;
+  const body = raw.slice(0, dot);
+  const sig = raw.slice(dot + 1);
+  const expect = crypto.createHmac('sha256', trialSecret()).update(body).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expect);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!payload || !payload.id || !Number.isFinite(payload.t0)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function trialInfo(payload) {
+  const ends = payload.t0 + TRIAL_MS;
+  return { active: Date.now() < ends, ends, started: payload.t0, id: payload.id };
+}
+
+function trialHeader(req) {
+  return req.headers['x-road-lore-trial'] || '';
+}
+
+function requireTrial(req, res) {
+  const payload = verifyTrial(trialHeader(req));
+  if (!payload) {
+    sendJson(res, 401, { error: 'trial_required', message: 'Start a session first.' });
+    return null;
+  }
+  const info = trialInfo(payload);
+  if (!info.active) {
+    sendJson(res, 402, {
+      error: 'trial_ended',
+      trialEnds: info.ends,
+      message: 'The complimentary week has ended. The on-device voice remains free.'
+    });
+    return null;
+  }
+  return info;
+}
 
 const ipHits = new Map();
 let dayKey = new Date().toISOString().slice(0, 10);
@@ -110,8 +168,22 @@ function readBody(req, maxBytes = 1_000_000) {
   });
 }
 
+function handleSession(req, res) {
+  const existing = verifyTrial(trialHeader(req));
+  const payload = existing || { id: crypto.randomUUID(), t0: Date.now() };
+  const info = trialInfo(payload);
+  sendJson(res, 200, {
+    token: signTrial(payload),
+    deviceId: payload.id,
+    trialActive: info.active,
+    trialEnds: info.ends,
+    trialDays: Math.round(TRIAL_MS / 86400000)
+  });
+}
+
 async function handleTts(req, res) {
   if (!allowRequest(req, res)) return;
+  if (!requireTrial(req, res)) return;
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     sendJson(res, 500, { error: 'Server is missing GEMINI_API_KEY. Set it in the environment.' });
@@ -192,6 +264,7 @@ function parseLoreJson(text, fallbackTitle) {
 
 async function handleLore(req, res) {
   if (!allowRequest(req, res)) return;
+  if (!requireTrial(req, res)) return;
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     sendJson(res, 500, { error: 'Server is missing GEMINI_API_KEY. Set it in the environment.' });
@@ -326,6 +399,7 @@ function serveStatic(req, res) {
 
 const server = http.createServer((req, res) => {
   const routePath = req.url.split('?')[0];
+  if (req.method === 'POST' && routePath === '/api/session') return handleSession(req, res);
   if (req.method === 'POST' && routePath === '/api/tts') return handleTts(req, res);
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
   if (req.method === 'GET') return serveStatic(req, res);
@@ -339,4 +413,5 @@ server.listen(PORT, () => {
   console.log('Gemini key: ' + (hasKey ? 'loaded from env' : 'MISSING (set GEMINI_API_KEY to enable /api/tts and /api/lore)'));
   console.log('Models: tts=' + GEMINI_MODEL + '  text=' + GEMINI_TEXT_MODEL);
   console.log('Limits: ' + RATE_MAX + ' req / ' + Math.round(RATE_WINDOW_MS / 1000) + 's per IP, ' + DAILY_CAP + ' / day (per instance)');
+  console.log('Trial: ' + Math.round(TRIAL_MS / 86400000) + ' day complimentary generated voice (then on-device voice)');
 });
