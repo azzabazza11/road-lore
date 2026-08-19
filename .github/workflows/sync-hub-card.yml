@@ -2,9 +2,7 @@
 # up to date whenever main changes version.json.
 #
 # Prerequisites (one-time):
-#   1. Add azzabazza11/azzabazza11.github.io to the Cursor GitHub App installation
-#      (or grant this Action a PAT that can push to it).
-#   2. Add a repo secret HUB_TOKEN — a PAT with repo scope on azzabazza11/azzabazza11.github.io.
+#   Add a repo secret HUB_TOKEN — a classic PAT with repo scope, owned by azzabazza11.
 #
 # Until HUB_TOKEN is set the job exits cleanly (skip, no failure).
 
@@ -29,7 +27,6 @@ jobs:
         run: |
           if [ -z "$HUB_TOKEN" ]; then
             echo "HUB_TOKEN not set — skipping hub sync."
-            echo "Add a PAT with repo scope on azzabazza11/azzabazza11.github.io as HUB_TOKEN."
             exit 0
           fi
           echo "HUB_TOKEN found, continuing."
@@ -47,17 +44,25 @@ jobs:
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
+
+          # Embed token in clone URL so push also uses it
           git clone --depth 1 \
-            "https://x-access-token:${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git" \
+            "https://${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git" \
             hub
 
-          BRANCH="passenger-tales-v${VERSION}"
+          # Make sure push also uses the token (not ssh or cached creds)
           cd hub
+          git remote set-url origin \
+            "https://${HUB_TOKEN}@github.com/azzabazza11/azzabazza11.github.io.git"
+
+          BRANCH="passenger-tales-v${VERSION}"
+          # Delete remote branch if it already exists (idempotent re-run)
+          git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
 
           python3 ../scripts/sync-hub-road-lore.py .
 
-          if git diff --quiet; then
+          if git diff --quiet && git diff --cached --quiet; then
             echo "Hub already up to date — nothing to commit."
             exit 0
           fi
@@ -66,8 +71,8 @@ jobs:
           git commit -m "Passenger Tales → v${VERSION} on the hub card."
           git push origin "$BRANCH"
 
-          # Open a PR using the hub token
-          curl -sf -X POST \
+          # Open a PR (fails silently if one already exists)
+          curl -s -X POST \
             -H "Authorization: token ${HUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/azzabazza11/azzabazza11.github.io/pulls \
@@ -76,4 +81,4 @@ jobs:
               \"body\": \"Auto-synced from road-lore version.json.\",
               \"head\": \"${BRANCH}\",
               \"base\": \"main\"
-            }" | jq -r '.html_url'
+            }" | jq -r 'if .html_url then .html_url else .errors[0].message end'
