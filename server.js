@@ -587,10 +587,10 @@ function serveStatic(req, res) {
     res.end('Forbidden');
     return;
   }
-  fs.readFile(filePath, (err, buf) => {
-    if (err) {
+  fs.stat(filePath, (statErr, st) => {
+    if (statErr || !st.isFile()) {
       res.writeHead(404, securityHeaders({ 'Content-Type': 'text/plain' }, req));
-      res.end('Not found');
+      res.end(req.method === 'HEAD' ? undefined : 'Not found');
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
@@ -605,8 +605,21 @@ function serveStatic(req, res) {
     if (base === 'version.json') {
       headers['Access-Control-Allow-Origin'] = '*';
     }
-    res.writeHead(200, headers);
-    res.end(buf);
+    headers['Content-Length'] = String(st.size);
+    if (req.method === 'HEAD') {
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+    fs.readFile(filePath, (err, buf) => {
+      if (err) {
+        res.writeHead(404, securityHeaders({ 'Content-Type': 'text/plain' }, req));
+        res.end('Not found');
+        return;
+      }
+      res.writeHead(200, headers);
+      res.end(buf);
+    });
   });
 }
 
@@ -622,7 +635,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
   if (req.method === 'GET' && routePath === '/api/nearby') return handleNearby(req, res);
   if (req.method === 'GET' && routePath === '/api/clips') return handleClips(req, res);
-  if (req.method === 'GET') return serveStatic(req, res);
+  if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res);
   res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }, req));
   res.end('Method not allowed');
 });
