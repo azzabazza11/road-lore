@@ -27,7 +27,9 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 
 - **Start trip** — watches GPS while you move
 - **Nearby stories** — Wikipedia places within ~10 km (API limit)
-- **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search)
+- **Interests** — history, geology, nature, people, maritime, industry, culture (Settings)
+- **Story length** — short / medium / long
+- **AI stories** — grounded local stories from the wider area (backend + Gemini + web search)
 - **Narration** — Gemini voice by default on new installs (device voice after the complimentary week, or if you choose it)
 - **Spoken-clip cache** — Cloud Run reuses a clip when the same story text and voice are requested again (GCS; off until `GCS_BUCKET` is set)
 - **Shared nearby stories** — travellers can replay AI-narrated clips left near a place (skips Gemini lore + TTS when a match exists)
@@ -60,7 +62,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.8.0**
+Version: **1.9.0**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -195,6 +197,10 @@ gcloud run services update road-lore \
 
 Over the limit returns HTTP `429`. Keep `--max-instances` low (e.g. `5`). Set a **GCP budget alert**.
 
-## AI local-history stories
+## AI local stories
 
 **Settings → Lore source:** Auto / Wikipedia only / AI stories. AI uses `POST /api/lore` with Google Search grounding. Same Cloud Run origin as the app.
+
+**Settings → Interests:** tap history, geology, nature, people, maritime, industry, and culture. Geology prompts search geological surveys (GNS Science, USGS, or the local survey) for landforms and how the landscape formed. If you narrow the list, Wikipedia nearby results that do not match fall through to AI.
+
+**Settings → Story length:** Short (~2 sentences), Medium (~3–4, default), or Long (~6–8). Passed to `/api/lore` as `interests` and `length`.

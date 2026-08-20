@@ -1,6 +1,6 @@
 {
   "name": "road-lore",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "description": "Passenger Tales PWA + optional Gemini voice backend proxy",
   "scripts": {
