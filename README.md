@@ -27,7 +27,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 
 - **Start trip** — watches GPS while you move
 - **Nearby stories** — Wikipedia places within ~10 km (API limit)
-- **Interests** — history, geology, nature, people, maritime, industry, culture (Settings)
+- **Interests** — history, geology, nature, people, maritime, industry, culture, civic, news, stats, trivia (Settings)
 - **Story length** — short / medium / long
 - **AI stories** — grounded local stories from the wider area (backend + Gemini + web search)
 - **Narration** — Gemini voice by default on new installs (device voice after the complimentary week, or if you choose it)
@@ -201,6 +201,6 @@ Over the limit returns HTTP `429`. Keep `--max-instances` low (e.g. `5`). Set a 
 
 **Settings → Lore source:** Auto / Wikipedia only / AI stories. AI uses `POST /api/lore` with Google Search grounding. Same Cloud Run origin as the app.
 
-**Settings → Interests:** tap history, geology, nature, people, maritime, industry, and culture. Geology prompts search geological surveys (GNS Science, USGS, or the local survey) for landforms and how the landscape formed. If you narrow the list, Wikipedia nearby results that do not match fall through to AI.
+**Settings → Interests:** tap history, geology, nature, people, maritime, industry, culture, civic, news, stats, and trivia. Geology prompts search geological surveys (GNS Science, USGS, or the local survey). Civic looks up council plans; News prefers local headlines (not graphic crime); Stats uses census and town numbers; Trivia is sourced fun facts. If you narrow the list, Wikipedia nearby results that do not match fall through to AI.
 
 **Settings → Story length:** Short (~2 sentences), Medium (~3–4, default), or Long (~6–8). Passed to `/api/lore` as `interests` and `length`.

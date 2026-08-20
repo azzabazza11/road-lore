@@ -641,7 +641,7 @@
       <p class="hint" style="margin:-6px 0 12px">AI stories search the wider area for the topics you pick — great where Wikipedia is thin. Needs the backend running.</p>
       <label>Interests</label>
       <div class="chips" id="interestChips" role="group" aria-label="Story interests"></div>
-      <p class="seg-caption">Tap to include or skip a topic. Geology looks up landforms and how the landscape formed.</p>
+      <p class="seg-caption">Tap to include or skip. Civic is council plans; News is local headlines; Stats is town numbers; Trivia is odd facts.</p>
       <label>Story length</label>
       <div class="seg" id="lengthSeg" role="group" aria-label="Story length">
         <button type="button" data-length="short">Short</button>
@@ -794,7 +794,11 @@
       { id: 'people', label: 'People', wiki: /\bborn\b|politician|artist|explorer|chief|writer|inventor|scientist|captain/i },
       { id: 'maritime', label: 'Maritime', wiki: /shipwreck|harbour|harbor|lighthouse|wharf|port|ferry|naval|wreck|maritime|fishing/i },
       { id: 'industry', label: 'Industry', wiki: /mine|mining|mill|railway|farm|gum|gold|timber|kauri|dairy|quarry|factory|industry/i },
-      { id: 'culture', label: 'Culture', wiki: /m[aā]ori|iwi|marae|festival|art gallery|language|tradition|wharenui|hap[uū]/i }
+      { id: 'culture', label: 'Culture', wiki: /m[aā]ori|iwi|marae|festival|art gallery|language|tradition|wharenui|hap[uū]/i },
+      { id: 'civic', label: 'Civic', wiki: /council|district|borough|municipality|mayor|town hall|city hall|planning|infrastructure/i },
+      { id: 'news', label: 'News', wiki: /newspaper|herald|times\b|gazette|chronicle|bulletin/i },
+      { id: 'stats', label: 'Stats', wiki: /population|census|demographics|statistics|inhabitants|elevation/i },
+      { id: 'trivia', label: 'Trivia', wiki: /famous for|known for|record|unusual|only|first|nickname|odd/i }
     ];
     const STORY_INTEREST_IDS = STORY_INTERESTS.map(spec => spec.id);
     const STORY_LENGTHS = {
@@ -837,6 +841,12 @@
       return FREQ_STOPS[Math.min(FREQ_STOPS.length - 1, Math.max(0, i) + 1)];
     }
 
+    function sameInterestSet(a, b) {
+      if (a.length !== b.length) return false;
+      const seen = new Set(a);
+      return b.every(id => seen.has(id));
+    }
+
     function normalizeStoredInterests(raw) {
       const list = Array.isArray(raw) ? raw : [];
       const seen = new Set();
@@ -847,7 +857,11 @@
           out.push(id);
         }
       }
-      return out.length ? out : STORY_INTEREST_IDS.slice();
+      if (!out.length) return STORY_INTEREST_IDS.slice();
+      // Full original 1.9.0 set → pick up Civic, News, Stats, Trivia.
+      const legacyDefault = ['history', 'geology', 'nature', 'people', 'maritime', 'industry', 'culture'];
+      if (sameInterestSet(out, legacyDefault)) return STORY_INTEREST_IDS.slice();
+      return out;
     }
 
     function selectedInterests() {

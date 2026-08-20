@@ -37,6 +37,26 @@ const INTERESTS = {
     label: 'Culture',
     prompt:
       'culture and arts: language, marae, festivals, food, music, and local traditions'
+  },
+  civic: {
+    label: 'Civic',
+    prompt:
+      'local government and council: district or city council, long-term and district plans, town hall, infrastructure, bypasses, water and housing schemes. Search council sites and plan documents — not national politics'
+  },
+  news: {
+    label: 'News',
+    prompt:
+      'recent local news: community papers, council notices, and town headlines from the last few years. Prefer civic developments, festivals, and notable events. Skip graphic crime, accidents, and electioneering'
+  },
+  stats: {
+    label: 'Stats',
+    prompt:
+      'town and region statistics: population, area, elevation, nicknames, sister cities, census quirks, and what the place is known for in numbers. Search Stats NZ, census, council community profiles, or the local equivalent'
+  },
+  trivia: {
+    label: 'Trivia',
+    prompt:
+      'fun facts and trivia: quirky true details, records, unusual laws, local firsts, odd place names, and “did you know” notes that are grounded in sources'
   }
 };
 

@@ -94,8 +94,24 @@ describe('buildLorePrompt', () => {
   it('includes geology when an older client omits interests', () => {
     const prompt = buildLorePrompt({ lat: -41.3, lng: 174.8 });
     assert.match(prompt, /geology and landforms/);
-    assert.match(prompt, /interested in: history, geology, nature, people, maritime, industry, culture/);
+    assert.match(prompt, new RegExp('interested in: ' + INTEREST_IDS.join(', ')));
     assert.match(prompt, /About 3–4 sentences/);
+  });
+
+  it('asks for council plans, local news, town stats, and trivia', () => {
+    const prompt = buildLorePrompt({
+      lat: -37.787,
+      lng: 175.279,
+      interests: ['civic', 'news', 'stats', 'trivia'],
+      length: 'short'
+    });
+    assert.match(prompt, /interested in: civic, news, stats, trivia/);
+    assert.match(prompt, /council/);
+    assert.match(prompt, /local news/);
+    assert.match(prompt, /population/);
+    assert.match(prompt, /quirky true details/);
+    assert.match(prompt, /Skip graphic crime/);
+    assert.doesNotMatch(prompt, /geology and landforms/);
   });
 });
 
