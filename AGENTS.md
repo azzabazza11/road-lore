@@ -39,4 +39,8 @@ Share QR stays in **Settings**. Do not put a share icon back on the home top bar
 
 ## TTS clip cache (Phase 1)
 
-`POST /api/tts` looks up `sha256(normalised text + voice)` in GCS when `GCS_BUCKET` is set. Hits skip Gemini. Misses generate, upload `tts/<hash>.json`, and return the same `{ audio, mimeType }` payload as before. Do not add nearby sharing, maps, or a location index until a later phase.
+`POST /api/tts` looks up `sha256(normalised text + voice)` in GCS when `GCS_BUCKET` is set. Hits skip Gemini. Misses generate, upload `tts/<hash>.json`, and return the same `{ audio, mimeType }` payload as before.
+
+## Shared nearby library (Phase 2)
+
+When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registered under `nearby/<geohash>/`. `GET /api/nearby` returns clips within radius (story location only — no user tracks). The phone tries shared clips before `/api/lore` when AI is allowed. Do not add admin maps (Phase 3) or report/expiry (Phase 4) until asked.

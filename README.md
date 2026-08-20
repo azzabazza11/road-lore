@@ -30,6 +30,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search)
 - **Narration** — Gemini voice by default on new installs (device voice after the complimentary week, or if you choose it)
 - **Spoken-clip cache** — Cloud Run reuses a clip when the same story text and voice are requested again (GCS; off until `GCS_BUCKET` is set)
+- **Shared nearby stories** — travellers can replay AI-narrated clips left near a place (skips Gemini lore + TTS when a match exists)
 - **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
 - **Log** — last five stories, replay or hear more
 - Screen wake lock while travelling (optional)
@@ -58,7 +59,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.5.0**
+Version: **1.6.0**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -72,11 +73,18 @@ Web apps cannot read a phone’s MAC address. Passenger Tales keeps a private ra
 
 Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. The GitHub Pages app calls that server for `/api/tts` and `/api/lore` (the key never ships to the phone). If Cloud Run is unreachable, Test voice falls back to the device voice.
 
-**Spoken-clip cache (Phase 1).** After a successful Gemini TTS call, Cloud Run stores the PCM in GCS under `tts/<sha256(text+voice)>.json`. The next request with the same normalised text and voice is served from the bucket — no second Gemini bill. This is **not** yet a shared nearby-library (that is Phase 2): clips are keyed only by story text + voice, not by GPS.
+**Spoken-clip cache (Phase 1).** After a successful Gemini TTS call, Cloud Run stores the PCM in GCS under `tts/<sha256(text+voice)>.json`. The next request with the same normalised text and voice is served from the bucket — no second Gemini bill.
+
+**Shared nearby library (Phase 2).** When TTS is generated (or served from cache) with GPS coordinates, the clip is also indexed under `nearby/<geohash>/`. `GET /api/nearby?lat=&lng=&radius=&voice=` returns matching clips within ~10 km so another traveller can hear them without calling `/api/lore` or Gemini TTS. Only **story location** is stored — not user tracks.
+
+Story order on the phone:
+
+- **Auto:** Wikipedia → shared nearby → grounded AI lore
+- **AI stories:** shared nearby → grounded AI lore
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
 
-If `GCS_BUCKET` is unset, behaviour is the old always-call-Gemini path.
+If `GCS_BUCKET` is unset, behaviour is the old always-call-Gemini path and `/api/nearby` returns `{ clips: [], index: "off" }`.
 
 ### One-time: create the clip bucket
 
@@ -178,6 +186,8 @@ gcloud run services update road-lore \
 | `RATE_WINDOW_MS` | `60000` | Rate-limit window (ms) |
 | `DAILY_CAP` | `500` | Total `/api/*` calls per instance per UTC day |
 | `GCS_BUCKET` | *(unset)* | Private bucket for TTS clip reuse; skip Gemini on text+voice hits |
+| `NEARBY_DEFAULT_RADIUS_M` | `10000` | Default search radius for `GET /api/nearby` |
+| `NEARBY_MAX_RADIUS_M` | `15000` | Hard cap on nearby radius (metres) |
 
 Over the limit returns HTTP `429`. Keep `--max-instances` low (e.g. `5`). Set a **GCP budget alert**.
 

@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.5.0" />
+  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.6.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -732,7 +732,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.5.0';
+    const APP_VERSION = '1.6.0';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1220,12 +1220,16 @@
     // Ask the backend proxy (server.js) for audio. The proxy holds the API key
     // server-side, so nothing secret ships to the browser. Returns PCM bytes,
     // or null if no backend is available (e.g. plain static hosting).
-    async function ttsViaProxy(text, voice) {
+    async function ttsViaProxy(text, voice, meta = {}) {
       try {
+        const body = { text, voice };
+        if (Number.isFinite(meta.lat)) body.lat = meta.lat;
+        if (Number.isFinite(meta.lng)) body.lng = meta.lng;
+        if (meta.title) body.title = meta.title;
         const res = await fetch(apiUrl('/api/tts'), {
           method: 'POST',
           headers: apiHeaders(),
-          body: JSON.stringify({ text, voice })
+          body: JSON.stringify(body)
         });
         if (res.status === 402 || res.status === 401) {
           state.trialActive = false;
@@ -1240,19 +1244,19 @@
       }
     }
 
-    async function speakGemini(text, onEnd, gen, cacheKey) {
+    async function speakGemini(text, onEnd, gen, cacheKey, meta = {}) {
       speaking = true;
-      setVoiceStatus('Generating AI voice…');
+      setVoiceStatus(meta.pcm ? 'Speaking…' : 'Generating AI voice…');
       $('eyebrow').textContent = 'Now narrating';
       $('placePill').classList.add('talk');
       const voice = state.settings.geminiVoice || 'Kore';
       const key = cacheKey || audioKey('adhoc', String(text).slice(0, 40), voice);
       try {
-        let pcm = await getClip(key);
+        let pcm = meta.pcm || await getClip(key);
         if (gen !== speakGen) return;
         if (pcm) setVoiceStatus('Speaking…');
         if (!pcm) {
-          pcm = await ttsViaProxy(text, voice);
+          pcm = await ttsViaProxy(text, voice, meta);
           if (gen !== speakGen) return;
           if (pcm) await putClip(key, pcm);
         }
@@ -1311,7 +1315,7 @@
       }, 60);
     }
 
-    function speak(text, onEnd, cacheKey) {
+    function speak(text, onEnd, cacheKey, meta) {
       stopSpeech();
       if (state.settings.muted) {
         setVoiceStatus('Muted');
@@ -1320,7 +1324,7 @@
       }
       const gen = speakGen;
       if (state.settings.voiceEngine === 'gemini' && trialIsActive()) {
-        speakGemini(text, onEnd, gen, cacheKey);
+        speakGemini(text, onEnd, gen, cacheKey, meta || {});
         return;
       }
       speakDevice(text, onEnd, gen);
@@ -1412,6 +1416,59 @@
       return seen;
     }
 
+    async function findStoryNearby(lat, lng) {
+      const voice = state.settings.geminiVoice || 'Kore';
+      const radiusM = Math.min(10000, state.settings.radiusKm * 1000);
+      const params = new URLSearchParams({
+        lat: String(lat),
+        lng: String(lng),
+        radius: String(radiusM),
+        voice,
+        limit: '12'
+      });
+      if (state.settings.noRepeat !== false) {
+        for (const t of recentTitles(8)) params.append('avoid', t);
+      }
+      const res = await fetch(apiUrl('/api/nearby?' + params.toString()), {
+        headers: apiHeaders()
+      });
+      if (res.status === 402 || res.status === 401) {
+        state.trialActive = false;
+        applyTrialGates();
+        return null;
+      }
+      if (!res.ok) return null;
+      const data = await res.json();
+      const clips = Array.isArray(data.clips) ? data.clips : [];
+      if (!clips.length) return null;
+
+      let best = null;
+      let bestScore = -1;
+      for (const c of clips) {
+        const pid = 'shared:' + String(c.ttsKey || c.title || '').slice(0, 24);
+        const heard = state.heard[pid];
+        if (state.settings.noRepeat !== false && heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) continue;
+        const score = 10000 - (Number(c.distance) || 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { ...c, pageid: pid };
+        }
+      }
+      if (!best || !best.text) return null;
+      return {
+        pageid: best.pageid,
+        title: best.title || 'Shared story',
+        extract: best.text,
+        dist: best.distance,
+        lat: best.lat,
+        lng: best.lng,
+        ai: true,
+        shared: true,
+        sharedPcm: best.audio ? b64ToBytes(best.audio) : null,
+        url: 'https://www.google.com/search?q=' + encodeURIComponent(best.title || 'local history')
+      };
+    }
+
     async function findStoryAI(lat, lng) {
       const body = { lat, lng };
       if (state.settings.noRepeat !== false) body.avoid = recentTitles(8);
@@ -1493,22 +1550,39 @@
     }
 
     async function getStory(lat, lng, kmh) {
-      // Auto: Wikipedia first, then grounded AI when coverage is thin.
       const src = state.settings.loreSource || 'auto';
       const allowAi = trialIsActive();
-      if (src === 'ai') return allowAi ? await findStoryAI(lat, lng) : await findStory(lat, lng, kmh);
+
+      if (src === 'ai') {
+        if (allowAi) {
+          try {
+            const shared = await findStoryNearby(lat, lng);
+            if (shared) return shared;
+          } catch { /* fall through to AI lore */ }
+          return await findStoryAI(lat, lng);
+        }
+        return await findStory(lat, lng, kmh);
+      }
+
       if (src === 'wikipedia' || !allowAi) return await findStory(lat, lng, kmh);
+
+      // Auto: Wikipedia, then shared clips, then grounded AI.
       let story = null;
       try {
         story = await findStory(lat, lng, kmh);
-      } catch { /* fall through to AI */ }
+      } catch { /* fall through */ }
+      if (!story && allowAi) {
+        try {
+          story = await findStoryNearby(lat, lng);
+        } catch { /* fall through */ }
+      }
       if (!story && allowAi) story = await findStoryAI(lat, lng);
       return story;
     }
 
     function showHero(story, eyebrow) {
       currentStory = story;
-      $('eyebrow').textContent = eyebrow || (story.ai ? 'Local story' : 'Found nearby');
+      $('eyebrow').textContent = eyebrow || (story.shared ? 'Shared story' : (story.ai ? 'Local story' : 'Found nearby'));
       $('topic').textContent = story.title;
       $('excerpt').textContent = clipForSpeech(story.extract, 900);
       $('placeVal').textContent = story.title;
@@ -1527,11 +1601,17 @@
     function speakStory(story, extraOnly) {
       const kind = extraOnly ? 'more' : 'main';
       const voice = state.settings.geminiVoice || 'Kore';
-      speak(storyLine(story, extraOnly), null, audioKey(story.pageid, kind, voice));
+      const meta = {
+        lat: story.lat,
+        lng: story.lng,
+        title: story.title,
+        pcm: !extraOnly ? story.sharedPcm : null
+      };
+      speak(storyLine(story, extraOnly), null, audioKey(story.pageid, kind, voice), meta);
     }
 
     function presentStory(story, { speakIt = true, recordLog = true } = {}) {
-      showHero(story, story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on'));
+      showHero(story, story.shared ? 'Shared story' : (story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on')));
 
       if (recordLog) {
         state.heard[String(story.pageid)] = Date.now();
