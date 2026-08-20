@@ -6,7 +6,8 @@ const {
   haversineM,
   createMemoryIndexStore,
   registerClip,
-  findNearby
+  findNearby,
+  listClips
 } = require('../clip-index');
 const { createMemoryStore, ttsCacheKey } = require('../tts-cache');
 
@@ -85,5 +86,26 @@ describe('nearby index', () => {
       voice: 'Kore',
       avoid: ['Gold rush']
     })).length, 0);
+  });
+
+  it('lists metadata without audio for the admin map', async () => {
+    const indexStore = createMemoryIndexStore();
+    const ttsStore = createMemoryStore();
+    const text = 'Kaipara harbour tale.';
+    const key = ttsCacheKey(text, 'Kore');
+    await ttsStore.put(key, { audio: 'pcm', voice: 'Kore' });
+    await registerClip(indexStore, ttsStore, {
+      text,
+      voice: 'Kore',
+      lat: -36.4,
+      lng: 174.3,
+      title: 'Kaipara',
+      ttsKey: key
+    });
+    const listed = await listClips(indexStore, { limit: 10 });
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].title, 'Kaipara');
+    assert.equal(listed[0].audio, undefined);
+    assert.ok(listed[0].textPreview);
   });
 });

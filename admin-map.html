@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>Passenger Tales — clip map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root {
+      --ink: #142018;
+      --paper: #e8efe6;
+      --panel: rgba(20, 32, 24, 0.88);
+      --accent: #c4a35a;
+      --line: rgba(232, 239, 230, 0.18);
+      --ok: #7eb89a;
+      --warn: #d4a574;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      color: var(--paper);
+      background: #0c1410;
+    }
+    #map {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+    .top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.1rem 1.25rem 0.9rem;
+      background: linear-gradient(180deg, rgba(12, 20, 16, 0.92) 0%, rgba(12, 20, 16, 0.55) 70%, transparent 100%);
+      pointer-events: none;
+    }
+    .top > * { pointer-events: auto; }
+    .brand {
+      font-family: Fraunces, Georgia, serif;
+      font-weight: 700;
+      font-size: clamp(1.45rem, 3.5vw, 2rem);
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      margin: 0;
+    }
+    .brand span {
+      display: block;
+      font-family: "Source Sans 3", sans-serif;
+      font-weight: 400;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.72;
+      margin-top: 0.35rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    button, .status {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--paper);
+      border-radius: 6px;
+      padding: 0.45rem 0.75rem;
+    }
+    button {
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    button:hover { border-color: var(--accent); }
+    button:active { transform: scale(0.98); }
+    .status { opacity: 0.9; font-size: 0.9rem; }
+    .status.ok { border-color: rgba(126, 184, 154, 0.45); }
+    .status.err { border-color: rgba(212, 120, 90, 0.55); color: #f0c4b0; }
+    .leaflet-popup-content-wrapper {
+      background: #15221a;
+      color: var(--paper);
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    .leaflet-popup-tip { background: #15221a; }
+    .leaflet-popup-content {
+      margin: 0.75rem 0.9rem;
+      font-size: 0.95rem;
+      line-height: 1.35;
+      max-width: 240px;
+    }
+    .leaflet-popup-content strong {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.05rem;
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+    .leaflet-popup-content .meta {
+      opacity: 0.7;
+      font-size: 0.8rem;
+      margin-top: 0.45rem;
+    }
+    .pin {
+      width: 14px;
+      height: 14px;
+      border-radius: 50% 50% 50% 0;
+      background: var(--accent);
+      border: 2px solid #fff8e8;
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <div id="map" role="application" aria-label="Shared clip locations"></div>
+  <header class="top">
+    <h1 class="brand">Passenger Tales<span>Shared clip map · admin</span></h1>
+    <div class="toolbar">
+      <div class="status" id="status">Loading…</div>
+      <button type="button" id="refresh">Refresh</button>
+      <a href="./" style="color: var(--accent); font-size: 0.9rem; text-decoration: none; padding: 0.45rem 0.2rem;">← App</a>
+    </div>
+  </header>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const APP_VERSION = '1.7.0';
+    const API_ORIGIN = (function () {
+      const h = location.hostname;
+      if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
+        return 'https://road-lore-528520900686.australia-southeast1.run.app';
+      }
+      return '';
+    })();
+    const TRIAL_KEY = 'passenger-tales-trial';
+
+    function apiUrl(path) {
+      return (API_ORIGIN || '') + path;
+    }
+
+    function trialToken() {
+      try {
+        const raw = localStorage.getItem(TRIAL_KEY);
+        if (!raw) return '';
+        const o = JSON.parse(raw);
+        return (o && o.token) || '';
+      } catch { return ''; }
+    }
+
+    function mapTokenFromUrl() {
+      const q = new URLSearchParams(location.search);
+      return q.get('token') || '';
+    }
+
+    function setStatus(text, kind) {
+      const el = document.getElementById('status');
+      el.textContent = text;
+      el.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    async function ensureSession() {
+      if (mapTokenFromUrl()) return;
+      let token = trialToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['x-road-lore-trial'] = token;
+      const res = await fetch(apiUrl('/api/session'), { method: 'POST', headers, body: '{}' });
+      if (!res.ok) throw new Error('session ' + res.status);
+      const data = await res.json();
+      if (data.token) {
+        try {
+          localStorage.setItem(TRIAL_KEY, JSON.stringify({
+            token: data.token,
+            deviceId: data.deviceId,
+            trialEnds: data.trialEnds
+          }));
+        } catch {}
+      }
+    }
+
+    function clipHeaders() {
+      const h = {};
+      const mapTok = mapTokenFromUrl();
+      if (mapTok) h['x-map-token'] = mapTok;
+      const trial = trialToken();
+      if (trial) h['x-road-lore-trial'] = trial;
+      return h;
+    }
+
+    const map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true
+    }).setView([-36.85, 174.76], 9);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    const pinIcon = L.divIcon({
+      className: '',
+      html: '<div class="pin"></div>',
+      iconSize: [14, 14],
+      iconAnchor: [7, 14],
+      popupAnchor: [0, -12]
+    });
+
+    let layer = L.layerGroup().addTo(map);
+
+    function whenFmt(iso) {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString();
+      } catch { return iso; }
+    }
+
+    async function loadClips() {
+      setStatus('Fetching clips…');
+      await ensureSession();
+      const params = new URLSearchParams({ limit: '500' });
+      const tok = mapTokenFromUrl();
+      if (tok) params.set('token', tok);
+      const res = await fetch(apiUrl('/api/clips?' + params.toString()), {
+        headers: clipHeaders()
+      });
+      if (res.status === 401 || res.status === 402) {
+        setStatus('Need a trial session or ?token=MAP_TOKEN', 'err');
+        return;
+      }
+      if (!res.ok) {
+        setStatus('Load failed (' + res.status + ')', 'err');
+        return;
+      }
+      const data = await res.json();
+      const clips = Array.isArray(data.clips) ? data.clips : [];
+      layer.clearLayers();
+      const bounds = [];
+      for (const c of clips) {
+        if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue;
+        const m = L.marker([c.lat, c.lng], { icon: pinIcon });
+        m.bindPopup(
+          '<strong>' + escapeHtml(c.title || 'Untitled') + '</strong>' +
+          escapeHtml(c.textPreview || '') +
+          '<div class="meta">' + escapeHtml(c.voice || '') +
+          (c.createdAt ? ' · ' + escapeHtml(whenFmt(c.createdAt)) : '') + '</div>'
+        );
+        m.addTo(layer);
+        bounds.push([c.lat, c.lng]);
+      }
+      if (bounds.length) map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12 });
+      setStatus(clips.length + ' clip' + (clips.length === 1 ? '' : 's') + ' · v' + APP_VERSION, 'ok');
+    }
+
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('refresh').addEventListener('click', () => {
+      loadClips().catch(err => setStatus(String(err).slice(0, 80), 'err'));
+    });
+
+    loadClips().catch(err => setStatus(String(err).slice(0, 80), 'err'));
+
+    // Soft pulse on load so the map feels alive without noise.
+    requestAnimationFrame(() => {
+      document.querySelector('.brand').style.opacity = '0';
+      document.querySelector('.brand').style.transition = 'opacity 0.7s ease';
+      requestAnimationFrame(() => { document.querySelector('.brand').style.opacity = '1'; });
+    });
+  </script>
+</body>
+</html>

@@ -278,6 +278,38 @@ async function findNearby(indexStore, ttsStore, opts) {
   return out;
 }
 
+async function listClips(indexStore, opts = {}) {
+  if (!indexStore) return [];
+  const limit = Math.min(Math.max(Number(opts.limit) || 500, 1), 2000);
+  const voiceFilter = opts.voice ? normalizeVoice(opts.voice) : '';
+  try {
+    const rows = await indexStore.listPrefix('');
+    const seen = new Set();
+    const out = [];
+    for (const row of rows) {
+      if (!row || seen.has(row.ttsKey)) continue;
+      seen.add(row.ttsKey);
+      if (voiceFilter && row.voice !== voiceFilter) continue;
+      out.push({
+        title: row.title,
+        lat: row.lat,
+        lng: row.lng,
+        voice: row.voice,
+        ttsKey: row.ttsKey,
+        geohash: row.geohash,
+        createdAt: row.createdAt,
+        textPreview: String(row.text || '').slice(0, 160)
+      });
+      if (out.length >= limit) break;
+    }
+    out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    return out;
+  } catch (err) {
+    console.error('[clip-index] list failed', String(err).slice(0, 200));
+    return [];
+  }
+}
+
 module.exports = {
   encodeGeohash,
   decodeGeohash,
@@ -291,5 +323,6 @@ module.exports = {
   createGcsBucketIndexStore,
   initClipIndex,
   registerClip,
-  findNearby
+  findNearby,
+  listClips
 };

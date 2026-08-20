@@ -43,4 +43,8 @@ Share QR stays in **Settings**. Do not put a share icon back on the home top bar
 
 ## Shared nearby library (Phase 2)
 
-When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registered under `nearby/<geohash>/`. `GET /api/nearby` returns clips within radius (story location only — no user tracks). The phone tries shared clips before `/api/lore` when AI is allowed. Do not add admin maps (Phase 3) or report/expiry (Phase 4) until asked.
+When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registered under `nearby/<geohash>/`. `GET /api/nearby` returns clips within radius (story location only — no user tracks). The phone tries shared clips before `/api/lore` when AI is allowed.
+
+## Admin clip map (Phase 3)
+
+`admin-map.html` + `GET /api/clips` (metadata pins on OSM). Trial session or `MAP_TOKEN`. Do not add report/hide/expiry (Phase 4) until asked.
