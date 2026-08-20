@@ -1,11 +1,12 @@
 {
   "id": "road-lore",
   "title": "Passenger Tales",
-  "version": "1.3.6",
+  "version": "1.7.1",
   "category": "Travel",
-  "desc": "Travel companion that narrates local history as you drive \u2014 Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.",
+  "desc": "Travel companion that narrates local history as you drive — Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.",
   "accent": "#e2b15a",
-  "icon": "\ud83d\uddfa",
+  "icon": "🗺",
+  "iconPath": "icon.svg",
   "platforms": [
     "android",
     "ios"
@@ -25,6 +26,21 @@
     "phone"
   ],
   "changelog": [
+    {
+      "version": "1.7.1",
+      "date": "2026-08-20",
+      "notes": "Replace install PNGs with Passenger Tales road icon."
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-08-20",
+      "notes": "Phase 3 admin OSM map of shared clips."
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-08-20",
+      "notes": "Phase 2 shared nearby clip library."
+    },
     {
       "version": "1.3.6",
       "date": "2026-08-19",
