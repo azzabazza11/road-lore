@@ -36,3 +36,7 @@ Then run `python3 scripts/sync-hub-road-lore.py`, commit the hub, and open/push 
 Install URL remains **https://azzabazza11.github.io/road-lore/** (repo path). Cloud Run service name stays `road-lore`. API header `x-road-lore-trial` is unchanged for backend compatibility.
 
 Share QR stays in **Settings**. Do not put a share icon back on the home top bar.
+
+## TTS clip cache (Phase 1)
+
+`POST /api/tts` looks up `sha256(normalised text + voice)` in GCS when `GCS_BUCKET` is set. Hits skip Gemini. Misses generate, upload `tts/<hash>.json`, and return the same `{ audio, mimeType }` payload as before. Do not add nearby sharing, maps, or a location index until a later phase.

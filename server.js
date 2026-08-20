@@ -8,11 +8,16 @@
 // Usage:
 //   GEMINI_API_KEY=your-key node server.js
 //   (or put the key in a .env file — see .env.example — and `node --env-file=.env server.js`)
+//
+// Optional Phase 1 TTS cache: set GCS_BUCKET to a bucket name (Cloud Run SA needs
+// storage.objectAdmin). Same text+voice is stored as tts/<sha256>.json and Gemini
+// is skipped on later requests. GCS_BUCKET=memory uses an in-process map (tests).
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const ttsCache = require('./tts-cache');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -33,6 +38,19 @@ const RATE_WINDOW_MS = Number(process.env.RATE_WINDOW_MS) || 60000; // 1 minute
 const RATE_MAX = Number(process.env.RATE_MAX) || 20;                // per IP / window
 const DAILY_CAP = Number(process.env.DAILY_CAP) || 500;            // per instance / UTC day
 const TRIAL_MS = Number(process.env.TRIAL_MS) || 7 * 24 * 60 * 60 * 1000;
+const GCS_BUCKET = (process.env.GCS_BUCKET || '').trim();
+
+let ttsStore = null;
+let ttsCacheMode = 'off';
+try {
+  const init = ttsCache.initTtsStore(GCS_BUCKET);
+  ttsStore = init.store;
+  ttsCacheMode = init.mode;
+} catch (err) {
+  console.error('[tts-cache] init failed', String(err).slice(0, 200));
+  ttsStore = null;
+  ttsCacheMode = 'off';
+}
 
 function trialSecret() {
   return process.env.TRIAL_SECRET || process.env.GEMINI_API_KEY || 'road-lore-dev-trial';
@@ -164,6 +182,7 @@ function corsHeaders(req) {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-road-lore-trial',
+    'Access-Control-Expose-Headers': 'X-TTS-Cache',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin'
   };
@@ -178,8 +197,10 @@ function securityHeaders(extra, req) {
   }, corsHeaders(req), extra);
 }
 
-function sendJson(res, code, obj) {
-  res.writeHead(code, securityHeaders({ 'Content-Type': 'application/json; charset=utf-8' }, res.req));
+function sendJson(res, code, obj, extra) {
+  res.writeHead(code, securityHeaders(Object.assign({
+    'Content-Type': 'application/json; charset=utf-8'
+  }, extra || {}), res.req));
   res.end(JSON.stringify(obj));
 }
 
@@ -211,14 +232,17 @@ function handleSession(req, res) {
   });
 }
 
+function sendTtsAudio(res, clip, cache) {
+  sendJson(res, 200, {
+    audio: clip.audio,
+    mimeType: clip.mimeType || 'audio/L16;rate=24000',
+    cache
+  }, { 'X-TTS-Cache': String(cache).toUpperCase() });
+}
+
 async function handleTts(req, res) {
   if (!allowRequest(req, res)) return;
   if (!requireTrial(req, res)) return;
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    sendJson(res, 500, { error: 'Server is missing GEMINI_API_KEY. Set it in the environment.' });
-    return;
-  }
 
   let text = '';
   let voice = 'Kore';
@@ -232,6 +256,19 @@ async function handleTts(req, res) {
   }
   if (!text.trim()) {
     sendJson(res, 400, { error: 'Missing "text"' });
+    return;
+  }
+
+  const cached = await ttsCache.lookupTts(ttsStore, text, voice);
+  if (cached) {
+    console.log('[tts] cache HIT');
+    sendTtsAudio(res, cached, 'hit');
+    return;
+  }
+
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    sendJson(res, 500, { error: 'Server is missing GEMINI_API_KEY. Set it in the environment.' });
     return;
   }
 
@@ -262,7 +299,17 @@ async function handleTts(req, res) {
       sendJson(res, 502, { error: 'No audio in Gemini response' });
       return;
     }
-    sendJson(res, 200, { audio: inline.data, mimeType: inline.mimeType || 'audio/L16;rate=24000' });
+    const clip = {
+      audio: inline.data,
+      mimeType: inline.mimeType || 'audio/L16;rate=24000',
+      voice
+    };
+    let cache = ttsStore ? 'miss' : 'off';
+    if (ttsStore) {
+      const saved = await ttsCache.saveTts(ttsStore, text, voice, clip);
+      if (!saved) cache = 'error';
+    }
+    sendTtsAudio(res, clip, cache);
   } catch (err) {
     sendJson(res, 500, { error: 'Proxy request failed', detail: String(err).slice(0, 200) });
   }
@@ -460,4 +507,5 @@ server.listen(PORT, () => {
   console.log('Models: tts=' + GEMINI_MODEL + '  text=' + GEMINI_TEXT_MODEL);
   console.log('Limits: ' + RATE_MAX + ' req / ' + Math.round(RATE_WINDOW_MS / 1000) + 's per IP, ' + DAILY_CAP + ' / day (per instance)');
   console.log('Trial: ' + Math.round(TRIAL_MS / 86400000) + ' day complimentary generated voice (then on-device voice)');
+  console.log('TTS cache: ' + ttsCacheMode + (ttsCacheMode === 'off' ? ' (set GCS_BUCKET to reuse clips)' : ''));
 });

@@ -1,5 +1,10 @@
 # Deploy the live app to Cloud Run when main is updated.
 # One-time: add repo secret GCP_SA_KEY (JSON key for a deploy service account).
+# TTS cache: GCS_BUCKET is a Cloud Run env var, not set here. After first
+# deploy of this code, run `gcloud run services update road-lore --region
+# australia-southeast1 --update-env-vars=GCS_BUCKET=passenger-tales-clips`
+# (and create the bucket + IAM as in README). The Action must not pass
+# --set-env-vars or it will wipe existing env including GCS_BUCKET.
 
 name: Deploy Cloud Run
 
