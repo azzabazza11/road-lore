@@ -114,13 +114,17 @@
       margin-top: 0.45rem;
     }
     .pin {
-      width: 14px;
-      height: 14px;
+      width: 100%;
+      height: 100%;
       border-radius: 50% 50% 50% 0;
       background: var(--accent);
-      border: 2px solid #fff8e8;
+      border: 3px solid #fff8e8;
       transform: rotate(-45deg);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    }
+    .leaflet-div-icon {
+      background: transparent;
+      border: none;
     }
   </style>
 </head>
@@ -137,7 +141,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const APP_VERSION = '1.7.1';
+    const APP_VERSION = '1.7.2';
     const API_ORIGIN = (function () {
       const h = location.hostname;
       if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
@@ -209,15 +213,35 @@
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
-    const pinIcon = L.divIcon({
-      className: '',
-      html: '<div class="pin"></div>',
-      iconSize: [14, 14],
-      iconAnchor: [7, 14],
-      popupAnchor: [0, -12]
-    });
+    // Grow pins as you zoom in (was a fixed 14px teardrop).
+    function pinPxForZoom(z) {
+      const zoom = Number(z) || 9;
+      if (zoom <= 8) return 28;
+      if (zoom <= 10) return 36;
+      if (zoom <= 12) return 44;
+      if (zoom <= 14) return 52;
+      if (zoom <= 16) return 64;
+      return 76;
+    }
+
+    function makePinIcon(size) {
+      const s = Math.round(size);
+      return L.divIcon({
+        className: 'pt-pin-icon',
+        html: '<div class="pin"></div>',
+        iconSize: [s, s],
+        iconAnchor: [s / 2, s],
+        popupAnchor: [0, -s + 4]
+      });
+    }
 
     let layer = L.layerGroup().addTo(map);
+    let markers = [];
+
+    function refreshPinSizes() {
+      const icon = makePinIcon(pinPxForZoom(map.getZoom()));
+      for (const m of markers) m.setIcon(icon);
+    }
 
     function whenFmt(iso) {
       if (!iso) return '';
@@ -246,10 +270,12 @@
       const data = await res.json();
       const clips = Array.isArray(data.clips) ? data.clips : [];
       layer.clearLayers();
+      markers = [];
       const bounds = [];
+      const icon = makePinIcon(pinPxForZoom(map.getZoom()));
       for (const c of clips) {
         if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue;
-        const m = L.marker([c.lat, c.lng], { icon: pinIcon });
+        const m = L.marker([c.lat, c.lng], { icon });
         m.bindPopup(
           '<strong>' + escapeHtml(c.title || 'Untitled') + '</strong>' +
           escapeHtml(c.textPreview || '') +
@@ -257,9 +283,11 @@
           (c.createdAt ? ' · ' + escapeHtml(whenFmt(c.createdAt)) : '') + '</div>'
         );
         m.addTo(layer);
+        markers.push(m);
         bounds.push([c.lat, c.lng]);
       }
       if (bounds.length) map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12 });
+      refreshPinSizes();
       setStatus(clips.length + ' clip' + (clips.length === 1 ? '' : 's') + ' · v' + APP_VERSION, 'ok');
     }
 
@@ -270,6 +298,8 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    map.on('zoomend', refreshPinSizes);
 
     document.getElementById('refresh').addEventListener('click', () => {
       loadClips().catch(err => setStatus(String(err).slice(0, 80), 'err'));
