@@ -1,0 +1,25 @@
+---
+description: Keep hub.json version locked to APP_VERSION for Aaron's Apps camp mother
+alwaysApply: true
+---
+
+# Hub / camp mother version lock
+
+Aaron's Apps hub card for this repo is driven by root **`hub.json`**. Camp mother (`azzabazza11.github.io`) owns the catalog — this repo never edits that hub's `apps/index.html`, fallbacks, or catalog by hand.
+
+## Every user-visible ship
+
+In the **same commit**:
+
+1. Bump `APP_VERSION` in `index.html` (and keep `version.json`, `service-worker.js` `CACHE` `passenger-tales-v…`, `package.json`, manifests, `README.md`, and `admin-map.html` `APP_VERSION` on the **same** string).
+2. Set `hub.json` `"version"` to that **identical** string.
+3. Prepend `hub.json` `changelog[]` with `{ "version": "<same>", "date": "YYYY-MM-DD", "notes": "<one line>" }`.
+
+Patch = bugfix, minor = feature, major = breaking.
+
+## Do not
+
+- Change version in the app without `hub.json` (or the reverse).
+- Ask the user to remember a hub bump — just do it.
+- `sed` / PR / push into `azzabazza11.github.io` from this repo. Notify via `.github/workflows/notify-hub.yml` (`repository_dispatch` `hub-sync`) only.
+- Invent hub badge text from the UI — the badge comes from `hub.json`.
