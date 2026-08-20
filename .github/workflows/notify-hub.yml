@@ -1,0 +1,37 @@
+# Notify Aaron's Apps camp mother when hub.json changes on main.
+# Camp mother owns the hub catalog; this only fires repository_dispatch.
+
+name: Notify hub camp mother
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - hub.json
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Dispatch hub-sync
+        env:
+          HUB_SYNC_TOKEN: ${{ secrets.HUB_SYNC_TOKEN }}
+          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TOKEN="${HUB_SYNC_TOKEN:-}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${HUB_TOKEN:-}"
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "Neither HUB_SYNC_TOKEN nor HUB_TOKEN is set."
+            echo "Skipping dispatch — camp mother still polls hub.json hourly."
+            exit 0
+          fi
+          GH_TOKEN="$TOKEN" gh api -X POST \
+            repos/azzabazza11/azzabazza11.github.io/dispatches \
+            -f event_type=hub-sync
+          echo "Dispatched hub-sync to azzabazza11.github.io"

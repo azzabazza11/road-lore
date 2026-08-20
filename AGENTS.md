@@ -1,28 +1,20 @@
 # Passenger Tales — agent notes
 
-## Apps hub (keep the tile current)
+## Apps hub (camp mother)
 
-The installable app is this repo (**Passenger Tales**). The hub tile on https://azzabazza11.github.io/apps/ lives in a second repo:
+The installable app is this repo (**Passenger Tales**). The hub tile on https://azzabazza11.github.io/apps/ is owned by **camp mother** in:
 
 - https://github.com/azzabazza11/azzabazza11.github.io
-- File: `apps/index.html` — `PROJECTS` entry `id: 'road-lore'` (legacy id; title should read **Passenger Tales**)
 
-Every version jump must update that card (or make it read `version.json` live). Helper:
+This app repo publishes **`hub.json`** at the root. Do **not** edit the hub catalog / `apps/index.html` / fallbacks from here.
 
-```bash
-python3 scripts/sync-hub-road-lore.py
-```
+On every user-visible version ship: bump `APP_VERSION` and `hub.json.version` together (same string), prepend `changelog[]`, and push. `.github/workflows/notify-hub.yml` dispatches `hub-sync` when `hub.json` lands on `main` (needs `HUB_SYNC_TOKEN` or `HUB_TOKEN`; otherwise camp mother polls hourly).
 
-Default hub checkout: `$HOME/azzabazza11.github.io` (cloned by `.cursor/clone-hub.sh`).
-
-`cursor[bot]` can **read** the public hub but **cannot push** until:
-
-1. [Cursor Integrations](https://cursor.com/dashboard/integrations) → GitHub includes `azzabazza11/azzabazza11.github.io` (or all repos), read-write.
-2. A **multi-repo** Cloud Agent environment selects **both** `road-lore` and `azzabazza11.github.io`: [Environments](https://cursor.com/dashboard/cloud-agents#environments).
+See `.cursor/rules/hub-camp-mother.mdc` (always applied).
 
 ## Version jumps
 
-Keep these the same string:
+Keep these the same string as `hub.json.version`:
 
 - `index.html` — `APP_VERSION` and the meta description
 - `version.json`
@@ -30,8 +22,7 @@ Keep these the same string:
 - `package.json`
 - `README.md`
 - `manifest.json` and `manifest.webmanifest`
-
-Then run `python3 scripts/sync-hub-road-lore.py`, commit the hub, and open/push a hub PR.
+- `admin-map.html` — `APP_VERSION`
 
 Install URL remains **https://azzabazza11.github.io/road-lore/** (repo path). Cloud Run service name stays `road-lore`. API header `x-road-lore-trial` is unchanged for backend compatibility.
 
