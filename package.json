@@ -1,10 +1,14 @@
 {
   "name": "road-lore",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "private": true,
   "description": "Passenger Tales PWA + optional Gemini voice backend proxy",
   "scripts": {
     "start": "node server.js",
-    "start:env": "node --env-file=.env server.js"
+    "start:env": "node --env-file=.env server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.17.2"
   }
 }

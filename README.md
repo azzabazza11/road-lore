@@ -18,6 +18,7 @@ That is **GitHub Pages**. Merging to `main` updates it in a minute — this is t
 cd road-lore
 cp .env.example .env      # paste GEMINI_API_KEY for voice / AI stories
 npm start                 # or: python3 -m http.server 8080 for Wikipedia + device voice only
+npm test                  # TTS cache unit tests
 ```
 
 Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` or `http://localhost`).
@@ -28,6 +29,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - **Nearby stories** — Wikipedia places within ~10 km (API limit)
 - **AI stories** — grounded local-history stories from the wider area (backend + Gemini + web search)
 - **Narration** — Gemini voice by default on new installs (device voice after the complimentary week, or if you choose it)
+- **Spoken-clip cache** — Cloud Run reuses a clip when the same story text and voice are requested again (GCS; off until `GCS_BUCKET` is set)
 - **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
 - **Log** — last five stories, replay or hear more
 - Screen wake lock while travelling (optional)
@@ -56,7 +58,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.4.2**
+Version: **1.5.0**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -69,6 +71,40 @@ Web apps cannot read a phone’s MAC address. Passenger Tales keeps a private ra
 ## Gemini AI voice
 
 Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. The GitHub Pages app calls that server for `/api/tts` and `/api/lore` (the key never ships to the phone). If Cloud Run is unreachable, Test voice falls back to the device voice.
+
+**Spoken-clip cache (Phase 1).** After a successful Gemini TTS call, Cloud Run stores the PCM in GCS under `tts/<sha256(text+voice)>.json`. The next request with the same normalised text and voice is served from the bucket — no second Gemini bill. This is **not** yet a shared nearby-library (that is Phase 2): clips are keyed only by story text + voice, not by GPS.
+
+The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
+
+If `GCS_BUCKET` is unset, behaviour is the old always-call-Gemini path.
+
+### One-time: create the clip bucket
+
+```bash
+gcloud config set project gen-lang-client-0257656817
+
+gcloud storage buckets create gs://passenger-tales-clips \
+  --location=australia-southeast1 \
+  --uniform-bucket-level-access
+
+# Runtime identity for service road-lore (empty means the default compute SA).
+SA=$(gcloud run services describe road-lore \
+  --region=australia-southeast1 \
+  --format='value(spec.template.spec.serviceAccountName)')
+if [ -z "$SA" ]; then
+  SA="$(gcloud projects describe gen-lang-client-0257656817 --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+fi
+
+gcloud storage buckets add-iam-policy-binding gs://passenger-tales-clips \
+  --member="serviceAccount:${SA}" \
+  --role="roles/storage.objectAdmin"
+
+gcloud run services update road-lore \
+  --region=australia-southeast1 \
+  --update-env-vars=GCS_BUCKET=passenger-tales-clips
+```
+
+Keep the bucket **not public**. Do not add `GCS_BUCKET` via `--set-env-vars` on a full deploy (that replaces the whole env map); use `--update-env-vars` as above.
 
 **Never commit the key.** It lives in Google Secret Manager as `GEMINI_API_KEY` (and in a local `.env` for laptop testing).
 
@@ -126,6 +162,14 @@ gcloud run deploy road-lore \
   --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest
 ```
 
+After the image is live, set the cache bucket once (safe to repeat):
+
+```bash
+gcloud run services update road-lore \
+  --region australia-southeast1 \
+  --update-env-vars GCS_BUCKET=passenger-tales-clips
+```
+
 ### Cost / abuse protection
 
 | Env var | Default | Meaning |
@@ -133,6 +177,7 @@ gcloud run deploy road-lore \
 | `RATE_MAX` | `20` | Max `/api/*` requests per IP per window |
 | `RATE_WINDOW_MS` | `60000` | Rate-limit window (ms) |
 | `DAILY_CAP` | `500` | Total `/api/*` calls per instance per UTC day |
+| `GCS_BUCKET` | *(unset)* | Private bucket for TTS clip reuse; skip Gemini on text+voice hits |
 
 Over the limit returns HTTP `429`. Keep `--max-instances` low (e.g. `5`). Set a **GCP budget alert**.
 
