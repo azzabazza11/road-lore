@@ -12,12 +12,15 @@
 // Optional Phase 1 TTS cache: set GCS_BUCKET to a bucket name (Cloud Run SA needs
 // storage.objectAdmin). Same text+voice is stored as tts/<sha256>.json and Gemini
 // is skipped on later requests. GCS_BUCKET=memory uses an in-process map (tests).
+//
+// Phase 2 nearby index uses the same bucket under nearby/<geohash>/ (GET /api/nearby).
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const ttsCache = require('./tts-cache');
+const clipIndex = require('./clip-index');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -50,6 +53,18 @@ try {
   console.error('[tts-cache] init failed', String(err).slice(0, 200));
   ttsStore = null;
   ttsCacheMode = 'off';
+}
+
+let clipIndexStore = null;
+let clipIndexMode = 'off';
+try {
+  const idx = clipIndex.initClipIndex(GCS_BUCKET);
+  clipIndexStore = idx.store;
+  clipIndexMode = idx.mode;
+} catch (err) {
+  console.error('[clip-index] init failed', String(err).slice(0, 200));
+  clipIndexStore = null;
+  clipIndexMode = 'off';
 }
 
 function trialSecret() {
@@ -219,6 +234,28 @@ function readBody(req, maxBytes = 1_000_000) {
   });
 }
 
+function parseQuery(req) {
+  try {
+    return new URL(req.url, 'http://localhost').searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+async function maybeIndexClip(text, voice, lat, lng, title, clip) {
+  if (!clipIndexStore || !ttsStore) return;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  await clipIndex.registerClip(clipIndexStore, ttsStore, {
+    text,
+    voice,
+    lat,
+    lng,
+    title,
+    clip,
+    ttsKey: ttsCache.ttsCacheKey(text, voice)
+  });
+}
+
 function handleSession(req, res) {
   const existing = verifyTrial(trialHeader(req));
   const payload = existing || { id: crypto.randomUUID(), t0: Date.now() };
@@ -246,10 +283,14 @@ async function handleTts(req, res) {
 
   let text = '';
   let voice = 'Kore';
+  let lat, lng, title;
   try {
     const body = JSON.parse((await readBody(req)) || '{}');
     text = String(body.text || '').slice(0, 5000);
     voice = String(body.voice || 'Kore');
+    lat = Number(body.lat);
+    lng = Number(body.lng);
+    title = body.title != null ? String(body.title).slice(0, 120) : '';
   } catch {
     sendJson(res, 400, { error: 'Invalid JSON body' });
     return;
@@ -262,6 +303,7 @@ async function handleTts(req, res) {
   const cached = await ttsCache.lookupTts(ttsStore, text, voice);
   if (cached) {
     console.log('[tts] cache HIT');
+    await maybeIndexClip(text, voice, lat, lng, title, cached);
     sendTtsAudio(res, cached, 'hit');
     return;
   }
@@ -308,10 +350,53 @@ async function handleTts(req, res) {
     if (ttsStore) {
       const saved = await ttsCache.saveTts(ttsStore, text, voice, clip);
       if (!saved) cache = 'error';
+      else await maybeIndexClip(text, voice, lat, lng, title, clip);
     }
     sendTtsAudio(res, clip, cache);
   } catch (err) {
     sendJson(res, 500, { error: 'Proxy request failed', detail: String(err).slice(0, 200) });
+  }
+}
+
+async function handleNearby(req, res) {
+  if (!allowRequest(req, res)) return;
+  if (!requireTrial(req, res)) return;
+
+  const q = parseQuery(req);
+  const lat = Number(q.get('lat'));
+  const lng = Number(q.get('lng'));
+  const radiusM = Number(q.get('radius') || q.get('radiusM') || process.env.NEARBY_DEFAULT_RADIUS_M || 10000);
+  const voice = String(q.get('voice') || 'Kore');
+  const limit = Number(q.get('limit') || 8);
+  const avoid = [];
+  for (const v of q.getAll('avoid')) {
+    for (const part of String(v).split(',')) {
+      const t = part.trim();
+      if (t) avoid.push(t);
+    }
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    sendJson(res, 400, { error: 'Missing/invalid lat,lng query params' });
+    return;
+  }
+  if (!clipIndexStore || !ttsStore) {
+    sendJson(res, 200, { clips: [], index: 'off' });
+    return;
+  }
+
+  try {
+    const clips = await clipIndex.findNearby(clipIndexStore, ttsStore, {
+      lat,
+      lng,
+      radiusM,
+      voice,
+      limit,
+      avoid
+    });
+    sendJson(res, 200, { clips });
+  } catch (err) {
+    sendJson(res, 500, { error: 'Nearby lookup failed', detail: String(err).slice(0, 200) });
   }
 }
 
@@ -495,6 +580,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && routePath === '/api/session') return handleSession(req, res);
   if (req.method === 'POST' && routePath === '/api/tts') return handleTts(req, res);
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
+  if (req.method === 'GET' && routePath === '/api/nearby') return handleNearby(req, res);
   if (req.method === 'GET') return serveStatic(req, res);
   res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }, req));
   res.end('Method not allowed');
@@ -508,4 +594,5 @@ server.listen(PORT, () => {
   console.log('Limits: ' + RATE_MAX + ' req / ' + Math.round(RATE_WINDOW_MS / 1000) + 's per IP, ' + DAILY_CAP + ' / day (per instance)');
   console.log('Trial: ' + Math.round(TRIAL_MS / 86400000) + ' day complimentary generated voice (then on-device voice)');
   console.log('TTS cache: ' + ttsCacheMode + (ttsCacheMode === 'off' ? ' (set GCS_BUCKET to reuse clips)' : ''));
+  console.log('Nearby index: ' + clipIndexMode + (clipIndexMode === 'off' ? '' : '  GET /api/nearby'));
 });
