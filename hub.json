@@ -1,0 +1,39 @@
+{
+  "id": "road-lore",
+  "title": "Passenger Tales",
+  "version": "1.3.6",
+  "category": "Travel",
+  "desc": "Travel companion that narrates local history as you drive \u2014 Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.",
+  "accent": "#e2b15a",
+  "icon": "\ud83d\uddfa",
+  "platforms": [
+    "android",
+    "ios"
+  ],
+  "status": "live",
+  "installable": true,
+  "desktopUrl": "https://azzabazza11.github.io/road-lore/",
+  "appUrl": "https://azzabazza11.github.io/road-lore/",
+  "tags": [
+    "travel",
+    "gps",
+    "wikipedia",
+    "ai",
+    "gemini",
+    "voice",
+    "pwa",
+    "phone"
+  ],
+  "changelog": [
+    {
+      "version": "1.3.6",
+      "date": "2026-08-19",
+      "notes": "Make More apps a share-sheet button and drop the home share icon."
+    },
+    {
+      "version": "1.3.5",
+      "date": "2026-08-19",
+      "notes": "Let Pages use Gemini by calling Cloud Run."
+    }
+  ]
+}
