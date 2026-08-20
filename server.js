@@ -42,6 +42,7 @@ const RATE_MAX = Number(process.env.RATE_MAX) || 20;                // per IP / 
 const DAILY_CAP = Number(process.env.DAILY_CAP) || 500;            // per instance / UTC day
 const TRIAL_MS = Number(process.env.TRIAL_MS) || 7 * 24 * 60 * 60 * 1000;
 const GCS_BUCKET = (process.env.GCS_BUCKET || '').trim();
+const MAP_TOKEN = (process.env.MAP_TOKEN || '').trim();
 
 let ttsStore = null;
 let ttsCacheMode = 'off';
@@ -196,7 +197,7 @@ function corsHeaders(req) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-road-lore-trial',
+    'Access-Control-Allow-Headers': 'Content-Type, x-road-lore-trial, x-map-token',
     'Access-Control-Expose-Headers': 'X-TTS-Cache',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin'
@@ -400,6 +401,45 @@ async function handleNearby(req, res) {
   }
 }
 
+function mapTokenOk(req) {
+  if (!MAP_TOKEN) return false;
+  const q = parseQuery(req);
+  const got = String(q.get('token') || req.headers['x-map-token'] || '');
+  if (!got || got.length !== MAP_TOKEN.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(got), Buffer.from(MAP_TOKEN));
+  } catch {
+    return false;
+  }
+}
+
+function requireMapAccess(req, res) {
+  if (mapTokenOk(req)) return true;
+  if (requireTrial(req, res)) return true;
+  return false;
+}
+
+async function handleClips(req, res) {
+  if (!allowRequest(req, res)) return;
+  if (!requireMapAccess(req, res)) return;
+
+  if (!clipIndexStore) {
+    sendJson(res, 200, { clips: [], index: 'off' });
+    return;
+  }
+
+  const q = parseQuery(req);
+  const voice = q.get('voice') ? String(q.get('voice')) : '';
+  const limit = Number(q.get('limit') || 500);
+
+  try {
+    const clips = await clipIndex.listClips(clipIndexStore, { voice, limit });
+    sendJson(res, 200, { clips, count: clips.length });
+  } catch (err) {
+    sendJson(res, 500, { error: 'Clip list failed', detail: String(err).slice(0, 200) });
+  }
+}
+
 // Pull a { title, text } object out of the model's text response, tolerating
 // code fences or stray prose around the JSON.
 function parseLoreJson(text, fallbackTitle) {
@@ -581,6 +621,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && routePath === '/api/tts') return handleTts(req, res);
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
   if (req.method === 'GET' && routePath === '/api/nearby') return handleNearby(req, res);
+  if (req.method === 'GET' && routePath === '/api/clips') return handleClips(req, res);
   if (req.method === 'GET') return serveStatic(req, res);
   res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }, req));
   res.end('Method not allowed');
@@ -595,4 +636,5 @@ server.listen(PORT, () => {
   console.log('Trial: ' + Math.round(TRIAL_MS / 86400000) + ' day complimentary generated voice (then on-device voice)');
   console.log('TTS cache: ' + ttsCacheMode + (ttsCacheMode === 'off' ? ' (set GCS_BUCKET to reuse clips)' : ''));
   console.log('Nearby index: ' + clipIndexMode + (clipIndexMode === 'off' ? '' : '  GET /api/nearby'));
+  console.log('Map: GET /api/clips + admin-map.html' + (MAP_TOKEN ? ' (MAP_TOKEN set)' : ' (trial or MAP_TOKEN)'));
 });
