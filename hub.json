@@ -1,7 +1,7 @@
 {
   "id": "road-lore",
   "title": "Passenger Tales",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "category": "Travel",
   "desc": "Travel companion that narrates local history as you drive — Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.",
   "accent": "#e2b15a",
@@ -26,6 +26,11 @@
     "phone"
   ],
   "changelog": [
+    {
+      "version": "1.8.0",
+      "date": "2026-08-20",
+      "notes": "Random Gemini voice option; auto voice preview with on-phone sample cache; remove Test voice button."
+    },
     {
       "version": "1.7.2",
       "date": "2026-08-20",

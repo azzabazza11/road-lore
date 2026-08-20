@@ -46,7 +46,7 @@ Passenger / co-pilot use recommended — don’t fiddle with the phone while dri
 
 1. Open the **Pages** URL in **Chrome** (not Samsung Internet)
 2. Allow **location**
-3. Tap **Start trip**, then **Test voice** once in Settings if needed
+3. Tap **Start trip**. Changing a voice in Settings plays a short preview automatically.
 4. Chrome menu → **Install app** / **Add to Home screen**
 
 If you previously installed an old **Road Lore** icon, remove it and install again from GitHub Pages.
@@ -60,7 +60,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.7.2**
+Version: **1.8.0**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -72,7 +72,7 @@ Web apps cannot read a phone’s MAC address. Passenger Tales keeps a private ra
 
 ## Gemini AI voice
 
-Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. The GitHub Pages app calls that server for `/api/tts` and `/api/lore` (the key never ships to the phone). If Cloud Run is unreachable, Test voice falls back to the device voice.
+Narration via Gemini (`gemini-2.5-flash-preview-tts`) is generated **on Cloud Run**. The GitHub Pages app calls that server for `/api/tts` and `/api/lore` (the key never ships to the phone). Voice previews are cached on the phone (IndexedDB) so a second listen is instant. If Cloud Run is unreachable, narration falls back to the device voice.
 
 **Spoken-clip cache (Phase 1).** After a successful Gemini TTS call, Cloud Run stores the PCM in GCS under `tts/<sha256(text+voice)>.json`. The next request with the same normalised text and voice is served from the bucket — no second Gemini bill.
 
