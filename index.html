@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history and interesting places as you drive. v1.8.0" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -402,6 +402,28 @@
       color: var(--muted);
       font-size: 0.8rem;
     }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .chips button {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .chips button.on {
+      background: var(--panel);
+      color: var(--ink);
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
 
     .empty { color: var(--muted); font-size: 0.88rem; padding: 4px 0; }
     a.wiki {
@@ -616,7 +638,17 @@
           <option value="ai">AI stories (Gemini + web search)</option>
         </select>
       </label>
-      <p class="hint" style="margin:-6px 0 12px">AI stories search the wider area for local history and read it aloud — great where Wikipedia is thin. Needs the backend running.</p>
+      <p class="hint" style="margin:-6px 0 12px">AI stories search the wider area for the topics you pick — great where Wikipedia is thin. Needs the backend running.</p>
+      <label>Interests</label>
+      <div class="chips" id="interestChips" role="group" aria-label="Story interests"></div>
+      <p class="seg-caption">Tap to include or skip. Civic is council plans; News is local headlines; Stats is town numbers; Trivia is odd facts.</p>
+      <label>Story length</label>
+      <div class="seg" id="lengthSeg" role="group" aria-label="Story length">
+        <button type="button" data-length="short">Short</button>
+        <button type="button" data-length="medium">Medium</button>
+        <button type="button" data-length="long">Long</button>
+      </div>
+      <p class="seg-caption" id="lengthCaption">About 3–4 sentences</p>
       <div class="row">
         <span>Don’t repeat stories</span>
         <button class="toggle on" id="noRepeatToggle" type="button" aria-pressed="true"></button>
@@ -731,7 +763,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.8.0';
+    const APP_VERSION = '1.9.0';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -755,6 +787,25 @@
     const SAMPLE_MIN_MS = 1000;
     const LOG_KEEP = 5;
     const FREQ_STOPS = [0.5, 6, 16];
+    const STORY_INTERESTS = [
+      { id: 'history', label: 'History', wiki: /history|museum|heritage|castle|cathedral|fort|memorial|settlement|pioneer/i },
+      { id: 'geology', label: 'Geology', wiki: /volcano|volcanic|basalt|limestone|granite|fault|glacier|geothermal|geyser|fossil|crater|ridge|escarpment|sandstone|schist|igneous|sediment|earthquake|tectonic|karst|cave|mineral|goldfield/i },
+      { id: 'nature', label: 'Nature', wiki: /national park|forest|wildlife|bird|wetland|reserve|river|lake|mountain|bay|harbour|harbor|beach|island|flora|fauna|conservation/i },
+      { id: 'people', label: 'People', wiki: /\bborn\b|politician|artist|explorer|chief|writer|inventor|scientist|captain/i },
+      { id: 'maritime', label: 'Maritime', wiki: /shipwreck|harbour|harbor|lighthouse|wharf|port|ferry|naval|wreck|maritime|fishing/i },
+      { id: 'industry', label: 'Industry', wiki: /mine|mining|mill|railway|farm|gum|gold|timber|kauri|dairy|quarry|factory|industry/i },
+      { id: 'culture', label: 'Culture', wiki: /m[aā]ori|iwi|marae|festival|art gallery|language|tradition|wharenui|hap[uū]/i },
+      { id: 'civic', label: 'Civic', wiki: /council|district|borough|municipality|mayor|town hall|city hall|planning|infrastructure/i },
+      { id: 'news', label: 'News', wiki: /newspaper|herald|times\b|gazette|chronicle|bulletin/i },
+      { id: 'stats', label: 'Stats', wiki: /population|census|demographics|statistics|inhabitants|elevation/i },
+      { id: 'trivia', label: 'Trivia', wiki: /famous for|known for|record|unusual|only|first|nickname|odd/i }
+    ];
+    const STORY_INTEREST_IDS = STORY_INTERESTS.map(spec => spec.id);
+    const STORY_LENGTHS = {
+      short: { speechChars: 360, extraChars: 420, expandChars: 500, excerptChars: 500, wikiChars: 900, caption: 'About 2 sentences' },
+      medium: { speechChars: 520, extraChars: 700, expandChars: 900, excerptChars: 900, wikiChars: 1800, caption: 'About 3–4 sentences' },
+      long: { speechChars: 1400, extraChars: 1100, expandChars: 1800, excerptChars: 1600, wikiChars: 2800, caption: 'About 6–8 sentences' }
+    };
     const AUDIO_DB = 'road-lore-audio';
     const AUDIO_STORE = 'clips';
     const UPDATE_LATER_KEY = 'passenger-tales-update-later';
@@ -790,6 +841,45 @@
       return FREQ_STOPS[Math.min(FREQ_STOPS.length - 1, Math.max(0, i) + 1)];
     }
 
+    function sameInterestSet(a, b) {
+      if (a.length !== b.length) return false;
+      const seen = new Set(a);
+      return b.every(id => seen.has(id));
+    }
+
+    function normalizeStoredInterests(raw) {
+      const list = Array.isArray(raw) ? raw : [];
+      const seen = new Set();
+      const out = [];
+      for (const id of list) {
+        if (STORY_INTEREST_IDS.includes(id) && !seen.has(id)) {
+          seen.add(id);
+          out.push(id);
+        }
+      }
+      if (!out.length) return STORY_INTEREST_IDS.slice();
+      // Full original 1.9.0 set → pick up Civic, News, Stats, Trivia.
+      const legacyDefault = ['history', 'geology', 'nature', 'people', 'maritime', 'industry', 'culture'];
+      if (sameInterestSet(out, legacyDefault)) return STORY_INTEREST_IDS.slice();
+      return out;
+    }
+
+    function selectedInterests() {
+      return normalizeStoredInterests(state && state.settings && state.settings.interests);
+    }
+
+    function storyLengthSpec() {
+      const id = state && state.settings && state.settings.storyLength;
+      return STORY_LENGTHS[id] || STORY_LENGTHS.medium;
+    }
+
+    function loreRequestFields() {
+      return {
+        interests: selectedInterests(),
+        length: (state.settings && state.settings.storyLength) || 'medium'
+      };
+    }
+
     const defaultState = () => ({
       settings: {
         radiusKm: 10,
@@ -799,6 +889,8 @@
         voiceEngine: 'gemini',
         geminiVoice: 'Kore',
         loreSource: 'auto',
+        interests: STORY_INTEREST_IDS.slice(),
+        storyLength: 'medium',
         noRepeat: true,
         auto: true,
         wakeLock: true,
@@ -846,7 +938,7 @@
 
     const INTRO_SPEECH =
       'Passenger Tales is a passenger companion, not a navigator. ' +
-      'I will share short local stories drawn from nearby history and the web. ' +
+      'I will share local stories drawn from nearby places and the web. ' +
       'The voice is generated, so names may be mispronounced, and a detail may occasionally be imperfect. ' +
       'Let\'s begin here.';
 
@@ -879,6 +971,8 @@
           next.settings.geminiVoice = 'Kore';
         }
         if (!['auto', 'wikipedia', 'ai'].includes(next.settings.loreSource)) next.settings.loreSource = 'auto';
+        next.settings.interests = normalizeStoredInterests(next.settings.interests);
+        if (!['short', 'medium', 'long'].includes(next.settings.storyLength)) next.settings.storyLength = 'medium';
         next.settings.noRepeat = next.settings.noRepeat !== false;
         next.settings.minGapKm = snapFreq(next.settings.minGapKm);
         if (!['auto', 'light', 'dark'].includes(next.settings.appearance)) next.settings.appearance = 'auto';
@@ -1355,14 +1449,14 @@
       return data?.query?.geosearch || [];
     }
 
-    async function wikiExtracts(pageids, { full = false } = {}) {
+    async     function wikiExtracts(pageids, { full = false } = {}) {
       if (!pageids.length) return {};
       const url = new URL(WIKI);
       url.searchParams.set('action', 'query');
       url.searchParams.set('prop', 'extracts|info');
       if (!full) url.searchParams.set('exintro', '1');
       url.searchParams.set('explaintext', '1');
-      if (full) url.searchParams.set('exchars', '1800');
+      if (full) url.searchParams.set('exchars', String(storyLengthSpec().wikiChars));
       url.searchParams.set('inprop', 'url');
       url.searchParams.set('pageids', pageids.join('|'));
       url.searchParams.set('format', 'json');
@@ -1373,13 +1467,25 @@
       return data?.query?.pages || {};
     }
 
-    function scoreCandidate(item, lat, lng, kmh) {
+    function interestMatchBoost(title, extract) {
+      const hay = (String(title || '') + ' ' + String(extract || '')).toLowerCase();
+      const selected = selectedInterests();
+      let boost = 0;
+      for (const spec of STORY_INTERESTS) {
+        if (!selected.includes(spec.id)) continue;
+        if (spec.wiki.test(hay)) boost += extract ? 100 : 70;
+      }
+      return boost;
+    }
+
+    function scoreCandidate(item, lat, lng, kmh, extract) {
       const heard = state.heard[String(item.pageid)];
       if (state.settings.noRepeat !== false && heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) return -1;
       let score = 1000 - item.dist;
       const title = item.title || '';
       if (/list of|disambiguation|railway station|highway|route \d|state highway/i.test(title)) score -= 400;
-      if (/history|museum|heritage|castle|cathedral|park|river|mountain|bay|harbour|harbor|bridge|fort|town|city|village/i.test(title)) score += 120;
+      if (/park|river|mountain|bay|harbour|harbor|bridge|fort|town|city|village/i.test(title)) score += 40;
+      score += interestMatchBoost(title, extract);
       if (kmh > 70 && item.dist > 2500) score += 40;
       if (kmh < 40 && item.dist < 1500) score += 40;
       return score;
@@ -1397,24 +1503,31 @@
 
       if (!ranked.length) return null;
 
-      const top = ranked.slice(0, 5);
+      const top = ranked.slice(0, 8);
       const pages = await wikiExtracts(top.map(t => t.pageid));
+      const narrowed = selectedInterests().length < STORY_INTEREST_IDS.length;
+      const ready = [];
       for (const cand of top) {
         const page = pages[String(cand.pageid)];
         if (!page || page.missing != null) continue;
         const extract = cleanExtract(page.extract || '');
         if (extract.length < 80) continue;
-        return {
+        const boost = interestMatchBoost(page.title || cand.title, extract);
+        if (narrowed && boost <= 0) continue;
+        ready.push({
           pageid: cand.pageid,
           title: page.title || cand.title,
           extract,
           dist: cand.dist,
           lat: cand.lat,
           lng: cand.lon,
-          url: page.fullurl || ('https://en.wikipedia.org/?curid=' + cand.pageid)
-        };
+          url: page.fullurl || ('https://en.wikipedia.org/?curid=' + cand.pageid),
+          score: cand.score + boost,
+          interestBoost: boost
+        });
       }
-      return null;
+      ready.sort((a, b) => (b.interestBoost - a.interestBoost) || (b.score - a.score));
+      return ready[0] || null;
     }
 
     function recentTitles(limit = 8) {
@@ -1480,7 +1593,7 @@
     }
 
     async function findStoryAI(lat, lng) {
-      const body = { lat, lng };
+      const body = { lat, lng, ...loreRequestFields() };
       if (state.settings.noRepeat !== false) body.avoid = recentTitles(8);
       const res = await fetch(apiUrl('/api/lore'), {
         method: 'POST',
@@ -1531,7 +1644,8 @@
         headers: apiHeaders(),
         body: JSON.stringify({
           lat, lng,
-          expand: { title: story.title, text: clipForSpeech(story.extract, 900) }
+          ...loreRequestFields(),
+          expand: { title: story.title, text: clipForSpeech(story.extract, storyLengthSpec().expandChars) }
         })
       });
       if (res.status === 402 || res.status === 401) {
@@ -1594,7 +1708,7 @@
       currentStory = story;
       $('eyebrow').textContent = eyebrow || (story.shared ? 'Shared story' : (story.ai ? 'Local story' : 'Found nearby'));
       $('topic').textContent = story.title;
-      $('excerpt').textContent = clipForSpeech(story.extract, 900);
+      $('excerpt').textContent = clipForSpeech(story.extract, storyLengthSpec().excerptChars);
       $('placeVal').textContent = story.title;
       $('distVal').textContent = story.dist == null ? '—' : (story.dist / 1000).toFixed(1);
       $('placePill').classList.add('live');
@@ -1604,7 +1718,8 @@
     }
 
     function storyLine(story, extraOnly) {
-      const body = clipForSpeech(extraOnly || story.extract, extraOnly ? 700 : 520);
+      const spec = storyLengthSpec();
+      const body = clipForSpeech(extraOnly || story.extract, extraOnly ? spec.extraChars : spec.speechChars);
       return extraOnly ? body : (story.title + '. ' + body);
     }
 
@@ -1931,6 +2046,23 @@
       sel.value = opts.includes(cur) ? cur : 'Kore';
     }
 
+    function renderInterestChips() {
+      const box = $('interestChips');
+      if (!box) return;
+      const selected = new Set(selectedInterests());
+      if (!box.dataset.ready) {
+        box.innerHTML = STORY_INTERESTS.map(spec =>
+          '<button type="button" data-interest="' + spec.id + '">' + escapeHtml(spec.label) + '</button>'
+        ).join('');
+        box.dataset.ready = '1';
+      }
+      box.querySelectorAll('button[data-interest]').forEach(btn => {
+        const on = selected.has(btn.dataset.interest);
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
     function renderSettings() {
       $('radiusKm').value = state.settings.radiusKm;
       $('rate').value = state.settings.rate;
@@ -1961,6 +2093,12 @@
       $('themeSeg').querySelectorAll('button').forEach(btn => {
         btn.classList.toggle('on', btn.dataset.theme === (state.settings.appearance || 'auto'));
       });
+      renderInterestChips();
+      const length = state.settings.storyLength || 'medium';
+      $('lengthSeg').querySelectorAll('button').forEach(btn => {
+        btn.classList.toggle('on', btn.dataset.length === length);
+      });
+      $('lengthCaption').textContent = storyLengthSpec().caption;
       if (state.settings.voiceEngine === 'gemini' && trialIsActive()) prefetchVoiceSamples();
     }
 
@@ -2252,6 +2390,34 @@
       state.settings.appearance = btn.dataset.theme;
       saveState();
       applyTheme();
+      renderSettings();
+    });
+
+    $('interestChips').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-interest]');
+      if (!btn) return;
+      const id = btn.dataset.interest;
+      if (!STORY_INTEREST_IDS.includes(id)) return;
+      const next = selectedInterests().slice();
+      const idx = next.indexOf(id);
+      if (idx >= 0) {
+        if (next.length === 1) return;
+        next.splice(idx, 1);
+      } else {
+        next.push(id);
+      }
+      state.settings.interests = next;
+      saveState();
+      renderSettings();
+    });
+
+    $('lengthSeg').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-length]');
+      if (!btn) return;
+      const id = btn.dataset.length;
+      if (!STORY_LENGTHS[id]) return;
+      state.settings.storyLength = id;
+      saveState();
       renderSettings();
     });
 

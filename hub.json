@@ -1,9 +1,9 @@
 {
   "id": "road-lore",
   "title": "Passenger Tales",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "category": "Travel",
-  "desc": "Travel companion that narrates local history as you drive — Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.",
+  "desc": "Travel companion that narrates local history, geology, and nearby stories as you drive — Wikipedia plus AI-generated regional stories in a natural Gemini voice. Mute, skip, replay.",
   "accent": "#e2b15a",
   "icon": "🗺",
   "iconPath": "icon.svg",
@@ -26,6 +26,11 @@
     "phone"
   ],
   "changelog": [
+    {
+      "version": "1.9.0",
+      "date": "2026-08-20",
+      "notes": "Story interests (history, geology, civic, news, trivia, and more) and short/medium/long length."
+    },
     {
       "version": "1.8.0",
       "date": "2026-08-20",

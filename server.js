@@ -21,6 +21,7 @@ const path = require('path');
 const crypto = require('crypto');
 const ttsCache = require('./tts-cache');
 const clipIndex = require('./clip-index');
+const lore = require('./lore');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -473,12 +474,14 @@ async function handleLore(req, res) {
     return;
   }
 
-  let lat, lng, avoid, expand;
+  let lat, lng, avoid, expand, interests, length;
   try {
     const body = JSON.parse((await readBody(req)) || '{}');
     lat = Number(body.lat);
     lng = Number(body.lng);
     avoid = Array.isArray(body.avoid) ? body.avoid.slice(0, 12).map(String) : [];
+    interests = lore.normalizeInterests(body.interests);
+    length = lore.normalizeLength(body.length);
     if (body.expand && typeof body.expand === 'object') {
       expand = {
         title: String(body.expand.title || '').slice(0, 120),
@@ -495,37 +498,10 @@ async function handleLore(req, res) {
     return;
   }
 
-  const avoidClause = avoid.length
-    ? 'The traveller has already heard stories about these — pick something clearly different: ' +
-      avoid.join('; ') + '.'
-    : '';
-  const prompt = expand
-    ? [
-        'You are a warm, knowledgeable local-history guide for people on a road trip.',
-        'The traveller is near latitude ' + lat.toFixed(5) + ', longitude ' + lng.toFixed(5) + '.',
-        'They just heard this short piece titled "' + expand.title + '":',
-        expand.text,
-        'Use web search to flesh out THIS SAME topic with 3–5 extra sentences: more colour, a surprising fact,',
-        'or what happened next. Do not retell the original. Do not start a new subject. Do not give directions.',
-        'Friendly and easy to follow when read aloud while driving.',
-        'Respond ONLY with minified JSON, no code fences: {"title":"' +
-          expand.title.replace(/["\\]/g, '') +
-          '","text":"<the extra narration only>"}'
-      ].join(' ')
-    : [
-        'You are a warm, knowledgeable local-history guide for people on a road trip.',
-        'The traveller is near latitude ' + lat.toFixed(5) + ', longitude ' + lng.toFixed(5) + '.',
-        'Use web search to find ONE genuinely interesting true story from the wider local area or region',
-        '(it need not be at the exact point) — e.g. Māori history, early settlers and industry (kauri, gum,',
-        'gold, farming, fishing), shipwrecks, notable people, landmarks, or events.',
-        'Blend vivid storytelling with accurate facts. About 3–4 sentences, friendly and easy to follow when',
-        'read aloud while driving. Do not give directions or navigation instructions.',
-        avoidClause,
-        'Respond ONLY with minified JSON, no code fences: {"title":"<short evocative title, max 6 words>","text":"<the narration>"}'
-      ].filter(Boolean).join(' ');
+  const prompt = lore.buildLorePrompt({ lat, lng, avoid, expand, interests, length });
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
+  const timer = setTimeout(() => controller.abort(), lore.loreTimeoutMs(length));
   try {
     const gRes = await fetch(GEMINI_TEXT_URL, {
       method: 'POST',
