@@ -39,3 +39,5 @@ When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registe
 ## Admin clip map (Phase 3)
 
 `admin-map.html` + `GET /api/clips` (metadata pins on OSM). Trial session or `MAP_TOKEN`. Do not add report/hide/expiry (Phase 4) until asked.
+
+**To-do (asked):** Play stored clips from the map — Play on the pin card, `GET /api/clip?key=` by `ttsKey` from GCS (no Gemini). Do not put audio on the pin list. Fetch one object per play; reuse the app’s L16 Web Audio player.
