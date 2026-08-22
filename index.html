@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.2" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.3" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -566,7 +566,7 @@
         <li>Allow location when asked.</li>
         <li>A first story can begin where you are, even before you move.</li>
         <li>Skip, Replay, and More are for the passenger. Stories start often; you can ease the pace later.</li>
-        <li>The first week includes the generated voice where the service is available. After that, the free on-device voice continues.</li>
+        <li>Gemini voice and AI stories are available where the service is running. The on-device voice works offline.</li>
       </ol>
       <div class="intro-note">
         <strong>A word on the telling.</strong>
@@ -695,7 +695,7 @@
           Gemini voice
           <select id="geminiVoice"></select>
         </label>
-        <p class="hint">Natural narration from the Passenger Tales backend (<code>gemini-2.5-flash-preview-tts</code>). Changing a voice plays a short preview; samples stay on this phone for instant replay. Choose <strong>Random</strong> to vary the voice each story. Complimentary for one week, then the on-device voice continues free.</p>
+        <p class="hint">Natural narration from the Passenger Tales backend (<code>gemini-2.5-flash-preview-tts</code>). Changing a voice plays a short preview; samples stay on this phone for instant replay. Choose <strong>Random</strong> to vary the voice each story. The on-device voice is there if you want it offline.</p>
         <p class="hint" id="trialHint" style="margin-top:8px"></p>
       </div>
       <div class="row">
@@ -765,7 +765,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.9.2';
+    const APP_VERSION = '1.9.3';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1029,24 +1029,11 @@
     }
 
     function trialIsActive() {
-      if (state.trialActive === false) return false;
-      if (state.trialEnds && Date.now() > state.trialEnds) return false;
       return true;
     }
 
     function applyTrialGates() {
-      if (trialIsActive()) return false;
-      let changed = false;
-      if (state.settings.voiceEngine === 'gemini') {
-        state.settings.voiceEngine = 'device';
-        changed = true;
-      }
-      if (state.settings.loreSource === 'ai') {
-        state.settings.loreSource = 'wikipedia';
-        changed = true;
-      }
-      if (changed) saveState();
-      return true;
+      return false;
     }
 
     function apiHeaders() {
@@ -1066,8 +1053,8 @@
         const data = await res.json();
         if (data.token) state.trialToken = data.token;
         if (data.deviceId && !state.deviceId) state.deviceId = data.deviceId;
-        if (Number.isFinite(data.trialEnds)) state.trialEnds = data.trialEnds;
-        state.trialActive = data.trialActive !== false;
+        state.trialEnds = 0;
+        state.trialActive = true;
         backendOk = true;
         saveState();
       } catch {
@@ -1079,16 +1066,9 @@
 
     function trialHintText() {
       if (!backendOk) {
-        return 'This copy is on GitHub Pages, so the free on-device voice is used. Generated Gemini voice runs on Cloud Run once that server is up to date.';
+        return 'This copy is on GitHub Pages. Generated Gemini voice runs on Cloud Run — if that server is unreachable, the on-device voice is used.';
       }
-      if (!state.trialEnds) {
-        return 'Generated voice is complimentary for the first week where the service is available. After that, the on-device voice stays free.';
-      }
-      if (trialIsActive()) {
-        const days = Math.max(0, Math.ceil((state.trialEnds - Date.now()) / 86400000));
-        return 'Complimentary generated voice · ' + days + ' day' + (days === 1 ? '' : 's') + ' remaining. The on-device voice is always free.';
-      }
-      return 'The complimentary week has ended. Continuing on the free on-device voice. Wikipedia nearby lore remains available.';
+      return 'Gemini voice and AI stories are open. The on-device voice still works offline.';
     }
 
     function osPrefersDark() {
@@ -1508,9 +1488,8 @@
           headers: apiHeaders(),
           body: JSON.stringify(body)
         });
-        if (res.status === 402 || res.status === 401) {
-          state.trialActive = false;
-          applyTrialGates();
+        if (res.status === 401) {
+          refreshTrial();
           return null;
         }
         if (!res.ok) return null;
@@ -1776,9 +1755,8 @@
       const res = await fetch(apiUrl('/api/nearby?' + params.toString()), {
         headers: apiHeaders()
       });
-      if (res.status === 402 || res.status === 401) {
-        state.trialActive = false;
-        applyTrialGates();
+      if (res.status === 401) {
+        refreshTrial();
         return null;
       }
       if (!res.ok) return null;
@@ -1828,10 +1806,9 @@
         headers: apiHeaders(),
         body: JSON.stringify(body)
       });
-      if (res.status === 402 || res.status === 401) {
-        state.trialActive = false;
-        applyTrialGates();
-        throw new Error('trial ended');
+      if (res.status === 401) {
+        refreshTrial();
+        throw new Error('session');
       }
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
@@ -1879,10 +1856,9 @@
           expand: { title: story.title, text: clipForSpeech(story.extract, storyLengthSpec().expandChars) }
         })
       });
-      if (res.status === 402 || res.status === 401) {
-        state.trialActive = false;
-        applyTrialGates();
-        throw new Error('trial ended');
+      if (res.status === 401) {
+        refreshTrial();
+        throw new Error('session');
       }
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
@@ -2340,13 +2316,8 @@
       populateGeminiVoices();
       updateVoicePanels();
       renderVersion();
-      const geminiOff = !!state.trialEnds && !trialIsActive();
-      $('voiceEngine').querySelector('option[value="gemini"]').disabled = geminiOff;
-      $('loreSource').querySelector('option[value="ai"]').disabled = geminiOff;
-      if (geminiOff) {
-        $('voiceEngine').value = 'device';
-        if ($('loreSource').value === 'ai') $('loreSource').value = 'wikipedia';
-      }
+      $('voiceEngine').querySelector('option[value="gemini"]').disabled = false;
+      $('loreSource').querySelector('option[value="ai"]').disabled = false;
       const hint = $('trialHint');
       if (hint) hint.textContent = trialHintText();
       $('noRepeatToggle').classList.toggle('on', state.settings.noRepeat !== false);
@@ -2698,9 +2669,6 @@
 
     $('voiceEngine').addEventListener('change', () => {
       state.settings.voiceEngine = $('voiceEngine').value;
-      if (state.settings.voiceEngine === 'gemini' && !trialIsActive()) {
-        state.settings.voiceEngine = 'device';
-      }
       saveState();
       renderSettings();
       scheduleVoicePreview();
@@ -2708,9 +2676,6 @@
 
     $('loreSource').addEventListener('change', () => {
       state.settings.loreSource = $('loreSource').value;
-      if (state.settings.loreSource === 'ai' && !trialIsActive()) {
-        state.settings.loreSource = 'wikipedia';
-      }
       saveState();
       renderSettings();
     });

@@ -141,7 +141,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const APP_VERSION = '1.9.2';
+    const APP_VERSION = '1.9.3';
     const API_ORIGIN = (function () {
       const h = location.hostname;
       if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
@@ -260,7 +260,7 @@
         headers: clipHeaders()
       });
       if (res.status === 401 || res.status === 402) {
-        setStatus('Need a trial session or ?token=MAP_TOKEN', 'err');
+        setStatus('Need a session or ?token=MAP_TOKEN', 'err');
         return;
       }
       if (!res.ok) {

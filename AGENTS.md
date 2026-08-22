@@ -24,7 +24,7 @@ Keep these the same string as `hub.json.version`:
 - `manifest.json` and `manifest.webmanifest`
 - `admin-map.html` — `APP_VERSION`
 
-Install URL remains **https://azzabazza11.github.io/road-lore/** (repo path). Cloud Run service name stays `road-lore`. API header `x-road-lore-trial` is unchanged for backend compatibility.
+Install URL remains **https://azzabazza11.github.io/road-lore/** (repo path). Cloud Run service name stays `road-lore`. API header `x-road-lore-trial` is unchanged for backend compatibility. Gemini voice and AI stories are open (no week-long trial).
 
 Share QR stays in **Settings**. Do not put a share icon back on the home top bar.
 
