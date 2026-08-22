@@ -56,3 +56,10 @@ Keep these **off** the existing story-interest chips (history, geology, and the 
 **Nearest first.** Suggestions are places, not tales: rank by distance from the current GPS fix and can return **more than one**. The narrator card’s Maps section lists **up to three** nearby choices (label + distance), each launching Google Maps with that destination loaded (`maps/dir/?api=1&destination=` lat,lng or place query). Passenger hop-out, not in-app navigation. Do not put a share icon on the home top bar.
 
 A lore/Wikipedia story card still gets a Maps hop when it has a place; suggestion picks are the multi-choice list.
+
+**Dining card.** One Settings chip. The first card is a **selection of what was found nearby**, spanning high-end, casual, fast food, bakeries, and the like — not a single restaurant tale. Populate **food-type choices from those found offerings** (only types that actually exist in the result set). The passenger can:
+
+1. Jump straight to Maps from the initial card (up to three nearest / featured places), or
+2. Tap a type (e.g. bakery, fast food) to run a **specified local search** and refresh the Maps choices to that type.
+
+Do not invent a type that had no nearby hit.
