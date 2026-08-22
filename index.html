@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.4" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.5" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -174,6 +174,13 @@
       -webkit-line-clamp: 7;
       -webkit-box-orient: vertical;
     }
+    .hero-sources {
+      margin: 10px 0 0;
+      flex-shrink: 0;
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+    .hero-sources[hidden] { display: none; }
     .meta-row {
       display: flex;
       flex-wrap: wrap;
@@ -590,6 +597,7 @@
       <div class="eyebrow" id="eyebrow">Ready when you are</div>
       <h2 class="topic" id="topic">Your roadside companion</h2>
       <p class="excerpt" id="excerpt">Start a trip and I’ll look up nearby places — towns, landmarks, history — then read a short intro aloud as you pass through.</p>
+      <p class="hero-sources" id="heroSources" hidden></p>
       <div class="meta-row">
         <span class="pill" id="placePill">Near <strong id="placeVal">—</strong></span>
         <span class="pill" id="distPill"><strong id="distVal">—</strong> km away</span>
@@ -765,7 +773,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.9.4';
+    const APP_VERSION = '1.9.5';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -814,6 +822,30 @@
     };
     const AUDIO_DB = 'road-lore-audio';
     const AUDIO_STORE = 'clips';
+    const SOURCE_CREDIT_MAX = 3;
+    const SOURCE_CREDIT_EVERY_MIN = 5;
+    const SOURCE_CREDIT_EVERY_MAX = 10;
+    const SOURCE_HOST_NAMES = {
+      'en.wikipedia.org': 'Wikipedia',
+      'wikipedia.org': 'Wikipedia',
+      'stuff.co.nz': 'Stuff',
+      'nzherald.co.nz': 'the New Zealand Herald',
+      'rnz.co.nz': 'RNZ',
+      'gns.cri.nz': 'GNS Science',
+      'stats.govt.nz': 'Stats NZ',
+      'teara.govt.nz': 'Te Ara',
+      'natlib.govt.nz': 'the National Library',
+      'doc.govt.nz': 'the Department of Conservation',
+      'linz.govt.nz': 'LINZ',
+      'bbc.co.uk': 'the BBC',
+      'bbc.com': 'the BBC',
+      'theguardian.com': 'the Guardian',
+      'thespinoff.co.nz': 'The Spinoff',
+      'odt.co.nz': 'the Otago Daily Times',
+      'waikato.ac.nz': 'the University of Waikato',
+      'auckland.ac.nz': 'the University of Auckland',
+      'usgs.gov': 'the USGS'
+    };
     const UPDATE_LATER_KEY = 'passenger-tales-update-later';
     const LEGACY_UPDATE_LATER_KEY = 'road-lore-update-later';
 
@@ -967,7 +999,8 @@
         appearance: 'auto',
         freqPrompted: false,
         seenIntro: false,
-        installPrompted: false
+        installPrompted: false,
+        sourceCreditHeard: 0
       },
       heard: {},
       heardTitles: {},
@@ -1056,6 +1089,10 @@
         }
         if (next.log.length > LOG_KEEP) next.log.length = LOG_KEEP;
         next.heardTitles = normalizeHeardTitles(p.heardTitles, next.log);
+        const heardN = Number(next.settings.sourceCreditHeard);
+        next.settings.sourceCreditHeard = Number.isFinite(heardN)
+          ? Math.max(0, Math.min(SOURCE_CREDIT_MAX, Math.floor(heardN)))
+          : 0;
         return next;
       } catch {
         return defaultState();
@@ -1990,11 +2027,143 @@
       return null;
     }
 
+    function parseSourceUrl(uri) {
+      try {
+        return new URL(String(uri || ''));
+      } catch {
+        return null;
+      }
+    }
+
+    function sourceHostKey(uri) {
+      const u = parseSourceUrl(uri);
+      if (!u) return '';
+      return u.hostname.replace(/^www\./i, '').toLowerCase();
+    }
+
+    function isLowValueSource(uri) {
+      const u = parseSourceUrl(uri);
+      if (!u) return true;
+      const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+      const path = u.pathname || '';
+      if (/google\./i.test(host) && /search/i.test(path + u.search)) return true;
+      if (/vertexaisearch|grounding-api|googleusercontent/i.test(host)) return true;
+      if (host === 'google.com' || host.endsWith('.google.com')) return true;
+      return false;
+    }
+
+    function spokenSiteName(uri, title) {
+      if (/wikipedia/i.test(String(title || ''))) return 'Wikipedia';
+      if (isLowValueSource(uri)) return '';
+      const host = sourceHostKey(uri);
+      if (!host) return '';
+      if (SOURCE_HOST_NAMES[host]) return SOURCE_HOST_NAMES[host];
+      const parts = host.split('.');
+      let base = parts[0];
+      if (parts.length >= 3 && ['co', 'com', 'govt', 'ac', 'org', 'net'].includes(parts[parts.length - 2])) {
+        base = parts[parts.length - 3] || parts[0];
+      }
+      if (!base || base.length < 3) return '';
+      return base.charAt(0).toUpperCase() + base.slice(1);
+    }
+
+    function worthySourceName(story) {
+      if (!story || story.continuation) return '';
+      const sources = Array.isArray(story.sources) ? story.sources : [];
+      for (const s of sources) {
+        const name = spokenSiteName(s && s.uri, s && s.title);
+        if (name) return name;
+      }
+      if (story.url) {
+        const name = spokenSiteName(story.url, story.title);
+        if (name) return name;
+      }
+      if (!story.ai && /^\d+$/.test(String(story.pageid || ''))) return 'Wikipedia';
+      return '';
+    }
+
+    function sourceCreditLine(siteName) {
+      const name = String(siteName || '').trim();
+      if (!name) return '';
+      return (
+        'This Passenger Tale was sliced from ' +
+        name +
+        '. Tap Sources on the card if you would like to visit.'
+      );
+    }
+
+    function clampCreditEvery(every) {
+      const n = Math.round(Number(every));
+      if (!Number.isFinite(n)) return 7;
+      return Math.min(SOURCE_CREDIT_EVERY_MAX, Math.max(SOURCE_CREDIT_EVERY_MIN, n));
+    }
+
+    function shouldSpeakSourceCredit(heardCount, every, slot) {
+      if ((Number(heardCount) || 0) >= SOURCE_CREDIT_MAX) return false;
+      const n = clampCreditEvery(every);
+      return (Number(slot) || 0) === 0 && n >= SOURCE_CREDIT_EVERY_MIN;
+    }
+
+    function pickCreditEvery(random) {
+      const r = typeof random === 'function' ? random() : Math.random();
+      return SOURCE_CREDIT_EVERY_MIN + Math.floor(r * (SOURCE_CREDIT_EVERY_MAX - SOURCE_CREDIT_EVERY_MIN + 1));
+    }
+
+    function maybeSourceCredit(story) {
+      if (!story || story.continuation || state.settings.muted) return '';
+      const name = worthySourceName(story);
+      if (!name) return '';
+      const heard = Number(state.settings.sourceCreditHeard) || 0;
+      if (heard >= SOURCE_CREDIT_MAX) return '';
+      const every = pickCreditEvery();
+      const slot = Math.floor(Math.random() * every);
+      if (!shouldSpeakSourceCredit(heard, every, slot)) return '';
+      state.settings.sourceCreditHeard = heard + 1;
+      saveState();
+      return sourceCreditLine(name);
+    }
+
+    function renderHeroSources(story) {
+      const el = $('heroSources');
+      if (!el) return;
+      el.replaceChildren();
+      if (!story) {
+        el.hidden = true;
+        return;
+      }
+      const seen = new Set();
+      const urls = [];
+      if (story.url) urls.push({ href: story.url, title: story.title });
+      (story.sources || []).forEach(s => {
+        if (s && (s.uri || s.url)) urls.push({ href: s.uri || s.url, title: s.title });
+      });
+      if (!urls.length && !story.ai && /^\d+$/.test(String(story.pageid || ''))) {
+        urls.push({ href: 'https://en.wikipedia.org/?curid=' + story.pageid, title: 'Wikipedia' });
+      }
+      let first = true;
+      urls.forEach(row => {
+        const href = String(row.href || '').trim();
+        if (!href || seen.has(href) || isLowValueSource(href)) return;
+        seen.add(href);
+        if (el.firstChild) el.append(document.createTextNode(' · '));
+        const a = document.createElement('a');
+        a.className = 'wiki';
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = first ? 'Sources' : (spokenSiteName(href, row.title) || 'Sources');
+        el.append(a);
+        first = false;
+      });
+      el.hidden = !el.firstChild;
+    }
+
     function showHero(story, eyebrow) {
       currentStory = story;
       $('eyebrow').textContent = storyEyebrow(story, eyebrow);
       $('topic').textContent = story.title;
       $('excerpt').textContent = clipForSpeech(story.extract, storyLengthSpec().excerptChars);
+      renderHeroSources(story);
       $('placeVal').textContent = story.title;
       $('distVal').textContent = story.dist == null ? '—' : (story.dist / 1000).toFixed(1);
       $('placePill').classList.add('live');
@@ -2010,17 +2179,19 @@
       return story.title + '. ' + body;
     }
 
-    function speakStory(story, extraOnly) {
-      const kind = extraOnly ? 'more' : 'main';
+    function speakStory(story, extraOnly, credit) {
+      const note = extraOnly || story.continuation ? '' : String(credit || '');
+      const kind = extraOnly ? 'more' : note ? 'main-src' : 'main';
       const voice = resolveGeminiVoice();
+      const spoken = note ? storyLine(story, extraOnly) + ' ' + note : storyLine(story, extraOnly);
       const meta = {
         lat: story.lat,
         lng: story.lng,
         title: story.title,
         voice,
-        pcm: !extraOnly ? story.sharedPcm : null
+        pcm: extraOnly || note ? null : story.sharedPcm
       };
-      speak(storyLine(story, extraOnly), null, audioKey(story.pageid, kind, voice), meta);
+      speak(spoken, null, audioKey(story.pageid, kind, voice), meta);
     }
 
     function presentStory(story, { speakIt = true, recordLog = true } = {}) {
@@ -2055,7 +2226,10 @@
         }
       }
 
-      if (speakIt && state.settings.auto) speakStory(story);
+      if (speakIt && state.settings.auto) {
+        const credit = story.continuation ? '' : maybeSourceCredit(story);
+        speakStory(story, null, credit);
+      }
     }
 
     function logItemToStory(item) {
