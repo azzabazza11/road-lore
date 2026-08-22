@@ -431,6 +431,31 @@ async function handleClips(req, res) {
   }
 }
 
+async function handleClipAudio(req, res) {
+  if (!allowRequest(req, res)) return;
+  if (!requireMapAccess(req, res)) return;
+
+  const key = clipIndex.normalizeTtsKey(parseQuery(req).get('key'));
+  if (!key) {
+    sendJson(res, 400, { error: 'Missing or invalid key' });
+    return;
+  }
+  if (!ttsStore) {
+    sendJson(res, 200, { audio: null, index: 'off' });
+    return;
+  }
+  try {
+    const clip = await clipIndex.getClipAudio(ttsStore, key);
+    if (!clip) {
+      sendJson(res, 404, { error: 'clip_not_found' });
+      return;
+    }
+    sendJson(res, 200, clip);
+  } catch (err) {
+    sendJson(res, 500, { error: 'Clip audio failed', detail: String(err).slice(0, 200) });
+  }
+}
+
 // Pull a { title, text } object out of the model's text response, tolerating
 // code fences or stray prose around the JSON.
 function parseLoreJson(text, fallbackTitle) {
@@ -604,6 +629,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && routePath === '/api/lore') return handleLore(req, res);
   if (req.method === 'GET' && routePath === '/api/nearby') return handleNearby(req, res);
   if (req.method === 'GET' && routePath === '/api/clips') return handleClips(req, res);
+  if (req.method === 'GET' && routePath === '/api/clip') return handleClipAudio(req, res);
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res);
   res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }, req));
   res.end('Method not allowed');
@@ -618,5 +644,5 @@ server.listen(PORT, () => {
   console.log('Gemini: open (session token required, no week limit)');
   console.log('TTS cache: ' + ttsCacheMode + (ttsCacheMode === 'off' ? ' (set GCS_BUCKET to reuse clips)' : ''));
   console.log('Nearby index: ' + clipIndexMode + (clipIndexMode === 'off' ? '' : '  GET /api/nearby'));
-  console.log('Map: GET /api/clips + admin-map.html' + (MAP_TOKEN ? ' (MAP_TOKEN set)' : ' (trial or MAP_TOKEN)'));
+  console.log('Map: GET /api/clips + GET /api/clip + admin-map.html' + (MAP_TOKEN ? ' (MAP_TOKEN set)' : ' (trial or MAP_TOKEN)'));
 });

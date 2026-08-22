@@ -311,6 +311,28 @@ async function listClips(indexStore, opts = {}) {
   }
 }
 
+function normalizeTtsKey(raw) {
+  const key = String(raw || '').trim().toLowerCase();
+  return /^[a-f0-9]{64}$/.test(key) ? key : '';
+}
+
+async function getClipAudio(ttsStore, ttsKey) {
+  const key = normalizeTtsKey(ttsKey);
+  if (!ttsStore || !key) return null;
+  try {
+    const clip = await ttsStore.get(key);
+    if (!clip || !clip.audio) return null;
+    return {
+      audio: clip.audio,
+      mimeType: clip.mimeType || 'audio/L16;rate=24000',
+      voice: clip.voice || ''
+    };
+  } catch (err) {
+    console.error('[clip-index] get audio failed', String(err).slice(0, 200));
+    return null;
+  }
+}
+
 module.exports = {
   encodeGeohash,
   decodeGeohash,
@@ -325,5 +347,7 @@ module.exports = {
   initClipIndex,
   registerClip,
   findNearby,
-  listClips
+  listClips,
+  normalizeTtsKey,
+  getClipAudio
 };

@@ -7,7 +7,9 @@ const {
   createMemoryIndexStore,
   registerClip,
   findNearby,
-  listClips
+  listClips,
+  normalizeTtsKey,
+  getClipAudio
 } = require('../clip-index');
 const { createMemoryStore, ttsCacheKey } = require('../tts-cache');
 
@@ -107,5 +109,19 @@ describe('nearby index', () => {
     assert.equal(listed[0].title, 'Kaipara');
     assert.equal(listed[0].audio, undefined);
     assert.ok(listed[0].textPreview);
+  });
+
+  it('loads one stored clip by ttsKey and rejects junk keys', async () => {
+    const ttsStore = createMemoryStore();
+    const text = 'Makarau tunnel tale.';
+    const key = ttsCacheKey(text, 'Kore');
+    await ttsStore.put(key, { audio: 'cGNt', mimeType: 'audio/L16;rate=24000', voice: 'Kore' });
+    const hit = await getClipAudio(ttsStore, key);
+    assert.equal(hit.audio, 'cGNt');
+    assert.equal(hit.mimeType, 'audio/L16;rate=24000');
+    assert.equal(await getClipAudio(ttsStore, 'not-a-hash'), null);
+    assert.equal(await getClipAudio(ttsStore, '../tts/secret'), null);
+    assert.equal(normalizeTtsKey(key), key);
+    assert.equal(normalizeTtsKey('abc'), '');
   });
 });
