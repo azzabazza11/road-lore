@@ -147,7 +147,9 @@ describe('client settings stay in sync', () => {
     assert.match(html, /data-length="medium"/);
     assert.match(html, /data-length="long"/);
     assert.match(html, /interests: selectedInterests\(\)/);
-    assert.match(html, /length: \(state\.settings && state\.settings\.storyLength\) \|\| 'medium'/);
+    assert.match(html, /length: storyLengthId\(\)/);
+    assert.match(html, /wikiUsesFullExtract\(/);
+    assert.match(html, /sharedClipPlan\(/);
     assert.deepEqual(Object.keys(LENGTHS), ['short', 'medium', 'long']);
   });
 
