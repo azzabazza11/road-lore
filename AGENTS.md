@@ -41,3 +41,14 @@ When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registe
 `admin-map.html` + `GET /api/clips` (metadata pins on OSM). Trial session or `MAP_TOKEN`. Do not add report/hide/expiry (Phase 4) until asked.
 
 **To-do (asked):** Play stored clips from the map — Play on the pin card, `GET /api/clip?key=` by `ttsKey` from GCS (no Gemini). Do not put audio on the pin list. Fetch one object per play; reuse the app’s L16 Web Audio player.
+
+## Suggestions + Maps (asked, not started)
+
+Keep these **off** the existing story-interest chips (history, geology, and the rest). Add a slightly separate **Suggestions** group in Settings:
+
+- Entertainment
+- Events
+- Dining / cuisine / food (one chip or a tight pair — do not sprawl)
+- Sightseeing
+
+When a suggestion (or any narrator result that has a place) is shown, attach an **appropriate Google Maps location** and a **launch button on the card** that opens Google Maps with the **destination already loaded** (`maps/dir/?api=1&destination=` lat,lng or place query). This is a passenger hop into Maps, not in-app navigation. Do not put a share icon on the home top bar.
