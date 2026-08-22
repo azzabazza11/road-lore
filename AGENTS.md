@@ -48,7 +48,11 @@ Keep these **off** the existing story-interest chips (history, geology, and the 
 
 - Entertainment
 - Events
-- Dining / cuisine / food (one chip or a tight pair — do not sprawl)
+- Dining / cuisine / food (one chip — do not sprawl)
 - Sightseeing
+- Parks / reserves
+- Restroom
 
-When a suggestion (or any narrator result that has a place) is shown, attach an **appropriate Google Maps location** and a **launch button on the card** that opens Google Maps with the **destination already loaded** (`maps/dir/?api=1&destination=` lat,lng or place query). This is a passenger hop into Maps, not in-app navigation. Do not put a share icon on the home top bar.
+**Nearest first.** Suggestions are places, not tales: rank by distance from the current GPS fix and can return **more than one**. The narrator card’s Maps section lists **up to three** nearby choices (label + distance), each launching Google Maps with that destination loaded (`maps/dir/?api=1&destination=` lat,lng or place query). Passenger hop-out, not in-app navigation. Do not put a share icon on the home top bar.
+
+A lore/Wikipedia story card still gets a Maps hop when it has a place; suggestion picks are the multi-choice list.
