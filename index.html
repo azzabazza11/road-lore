@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.1" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.3" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -566,7 +566,7 @@
         <li>Allow location when asked.</li>
         <li>A first story can begin where you are, even before you move.</li>
         <li>Skip, Replay, and More are for the passenger. Stories start often; you can ease the pace later.</li>
-        <li>The first week includes the generated voice where the service is available. After that, the free on-device voice continues.</li>
+        <li>Gemini voice and AI stories are available where the service is running. The on-device voice works offline.</li>
       </ol>
       <div class="intro-note">
         <strong>A word on the telling.</strong>
@@ -649,6 +649,7 @@
         <button type="button" data-length="long">Long</button>
       </div>
       <p class="seg-caption" id="lengthCaption">About 3–4 sentences</p>
+      <p class="hint" style="margin:-6px 0 12px">Applies to Wikipedia, AI, and shared clips. Long reads past the Wikipedia intro.</p>
       <div class="row">
         <span>Don’t repeat stories</span>
         <button class="toggle on" id="noRepeatToggle" type="button" aria-pressed="true"></button>
@@ -694,7 +695,7 @@
           Gemini voice
           <select id="geminiVoice"></select>
         </label>
-        <p class="hint">Natural narration from the Passenger Tales backend (<code>gemini-2.5-flash-preview-tts</code>). Changing a voice plays a short preview; samples stay on this phone for instant replay. Choose <strong>Random</strong> to vary the voice each story. Complimentary for one week, then the on-device voice continues free.</p>
+        <p class="hint">Natural narration from the Passenger Tales backend (<code>gemini-2.5-flash-preview-tts</code>). Changing a voice plays a short preview; samples stay on this phone for instant replay. Choose <strong>Random</strong> to vary the voice each story. The on-device voice is there if you want it offline.</p>
         <p class="hint" id="trialHint" style="margin-top:8px"></p>
       </div>
       <div class="row">
@@ -764,7 +765,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.9.1';
+    const APP_VERSION = '1.9.3';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -807,9 +808,9 @@
     ];
     const STORY_INTEREST_IDS = STORY_INTERESTS.map(spec => spec.id);
     const STORY_LENGTHS = {
-      short: { speechChars: 360, extraChars: 420, expandChars: 500, excerptChars: 500, wikiChars: 900, caption: 'About 2 sentences' },
-      medium: { speechChars: 520, extraChars: 700, expandChars: 900, excerptChars: 900, wikiChars: 1800, caption: 'About 3–4 sentences' },
-      long: { speechChars: 1400, extraChars: 1100, expandChars: 1800, excerptChars: 1600, wikiChars: 2800, caption: 'About 6–8 sentences' }
+      short: { id: 'short', speechChars: 360, extraChars: 420, expandChars: 500, excerptChars: 500, wikiChars: 900, caption: 'About 2 sentences' },
+      medium: { id: 'medium', speechChars: 520, extraChars: 700, expandChars: 900, excerptChars: 900, wikiChars: 1800, caption: 'About 3–4 sentences' },
+      long: { id: 'long', speechChars: 1400, extraChars: 1100, expandChars: 1800, excerptChars: 1600, wikiChars: 2800, caption: 'About 6–8 sentences' }
     };
     const AUDIO_DB = 'road-lore-audio';
     const AUDIO_STORE = 'clips';
@@ -873,15 +874,32 @@
       return normalizeStoredInterests(state && state.settings && state.settings.interests);
     }
 
-    function storyLengthSpec() {
+    function storyLengthId() {
       const id = state && state.settings && state.settings.storyLength;
-      return STORY_LENGTHS[id] || STORY_LENGTHS.medium;
+      return STORY_LENGTHS[id] ? id : 'medium';
+    }
+
+    function storyLengthSpec() {
+      return STORY_LENGTHS[storyLengthId()];
+    }
+
+    // Keep in sync with story-length.js
+    function wikiUsesFullExtract(length) {
+      return (length || storyLengthId()) === 'long';
+    }
+
+    function sharedClipPlan(textLength, length) {
+      const spec = STORY_LENGTHS[length] || storyLengthSpec();
+      const n = Number(textLength) || 0;
+      if (spec.id === 'long' && n < spec.speechChars * 0.45) return 'skip';
+      if (n > spec.speechChars * 1.3) return 'clip';
+      return 'play';
     }
 
     function loreRequestFields() {
       return {
         interests: selectedInterests(),
-        length: (state.settings && state.settings.storyLength) || 'medium'
+        length: storyLengthId()
       };
     }
 
@@ -1011,24 +1029,11 @@
     }
 
     function trialIsActive() {
-      if (state.trialActive === false) return false;
-      if (state.trialEnds && Date.now() > state.trialEnds) return false;
       return true;
     }
 
     function applyTrialGates() {
-      if (trialIsActive()) return false;
-      let changed = false;
-      if (state.settings.voiceEngine === 'gemini') {
-        state.settings.voiceEngine = 'device';
-        changed = true;
-      }
-      if (state.settings.loreSource === 'ai') {
-        state.settings.loreSource = 'wikipedia';
-        changed = true;
-      }
-      if (changed) saveState();
-      return true;
+      return false;
     }
 
     function apiHeaders() {
@@ -1048,8 +1053,8 @@
         const data = await res.json();
         if (data.token) state.trialToken = data.token;
         if (data.deviceId && !state.deviceId) state.deviceId = data.deviceId;
-        if (Number.isFinite(data.trialEnds)) state.trialEnds = data.trialEnds;
-        state.trialActive = data.trialActive !== false;
+        state.trialEnds = 0;
+        state.trialActive = true;
         backendOk = true;
         saveState();
       } catch {
@@ -1061,16 +1066,9 @@
 
     function trialHintText() {
       if (!backendOk) {
-        return 'This copy is on GitHub Pages, so the free on-device voice is used. Generated Gemini voice runs on Cloud Run once that server is up to date.';
+        return 'This copy is on GitHub Pages. Generated Gemini voice runs on Cloud Run — if that server is unreachable, the on-device voice is used.';
       }
-      if (!state.trialEnds) {
-        return 'Generated voice is complimentary for the first week where the service is available. After that, the on-device voice stays free.';
-      }
-      if (trialIsActive()) {
-        const days = Math.max(0, Math.ceil((state.trialEnds - Date.now()) / 86400000));
-        return 'Complimentary generated voice · ' + days + ' day' + (days === 1 ? '' : 's') + ' remaining. The on-device voice is always free.';
-      }
-      return 'The complimentary week has ended. Continuing on the free on-device voice. Wikipedia nearby lore remains available.';
+      return 'Gemini voice and AI stories are open. The on-device voice still works offline.';
     }
 
     function osPrefersDark() {
@@ -1490,9 +1488,8 @@
           headers: apiHeaders(),
           body: JSON.stringify(body)
         });
-        if (res.status === 402 || res.status === 401) {
-          state.trialActive = false;
-          applyTrialGates();
+        if (res.status === 401) {
+          refreshTrial();
           return null;
         }
         if (!res.ok) return null;
@@ -1604,14 +1601,15 @@
       return data?.query?.geosearch || [];
     }
 
-    async     function wikiExtracts(pageids, { full = false } = {}) {
+    async function wikiExtracts(pageids, { full = false } = {}) {
       if (!pageids.length) return {};
       const url = new URL(WIKI);
       url.searchParams.set('action', 'query');
       url.searchParams.set('prop', 'extracts|info');
-      if (!full) url.searchParams.set('exintro', '1');
+      const fetchBody = full || wikiUsesFullExtract();
+      if (!fetchBody) url.searchParams.set('exintro', '1');
       url.searchParams.set('explaintext', '1');
-      if (full) url.searchParams.set('exchars', String(storyLengthSpec().wikiChars));
+      url.searchParams.set('exchars', String(storyLengthSpec().wikiChars));
       url.searchParams.set('inprop', 'url');
       url.searchParams.set('pageids', pageids.join('|'));
       url.searchParams.set('format', 'json');
@@ -1658,7 +1656,7 @@
       if (!ranked.length) return null;
 
       const top = ranked.slice(0, 8);
-      const pages = await wikiExtracts(top.map(t => t.pageid));
+      const pages = await wikiExtracts(top.map(t => t.pageid), { full: wikiUsesFullExtract() });
       const narrowed = selectedInterests().length < STORY_INTEREST_IDS.length;
       const ready = [];
       for (const cand of top) {
@@ -1757,9 +1755,8 @@
       const res = await fetch(apiUrl('/api/nearby?' + params.toString()), {
         headers: apiHeaders()
       });
-      if (res.status === 402 || res.status === 401) {
-        state.trialActive = false;
-        applyTrialGates();
+      if (res.status === 401) {
+        refreshTrial();
         return null;
       }
       if (!res.ok) return null;
@@ -1769,14 +1766,19 @@
 
       let best = null;
       let bestScore = -1;
+      let bestPlan = 'play';
       const avoid = state.settings.noRepeat !== false ? recentTitles(AVOID_LIMIT) : [];
+      const lengthId = storyLengthId();
       for (const c of clips) {
         const title = c.title || 'Shared story';
         const pid = 'shared:' + (normalizeTitle(title).slice(0, 48) || String(c.ttsKey || '').slice(0, 24));
         if (state.settings.noRepeat !== false && (recentlyHeard(pid, title) || titleInList(title, avoid))) continue;
+        const plan = sharedClipPlan(cleanExtract(c.text).length, lengthId);
+        if (plan === 'skip') continue;
         const score = 10000 - (Number(c.distance) || 0);
         if (score > bestScore) {
           bestScore = score;
+          bestPlan = plan;
           best = { ...c, pageid: pid };
         }
       }
@@ -1790,7 +1792,7 @@
         lng: best.lng,
         ai: true,
         shared: true,
-        sharedPcm: best.audio ? b64ToBytes(best.audio) : null,
+        sharedPcm: bestPlan === 'play' && best.audio ? b64ToBytes(best.audio) : null,
         url: 'https://www.google.com/search?q=' + encodeURIComponent(best.title || 'local history')
       };
     }
@@ -1804,10 +1806,9 @@
         headers: apiHeaders(),
         body: JSON.stringify(body)
       });
-      if (res.status === 402 || res.status === 401) {
-        state.trialActive = false;
-        applyTrialGates();
-        throw new Error('trial ended');
+      if (res.status === 401) {
+        refreshTrial();
+        throw new Error('session');
       }
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
@@ -1855,29 +1856,40 @@
           expand: { title: story.title, text: clipForSpeech(story.extract, storyLengthSpec().expandChars) }
         })
       });
-      if (res.status === 402 || res.status === 401) {
-        state.trialActive = false;
-        applyTrialGates();
-        throw new Error('trial ended');
+      if (res.status === 401) {
+        refreshTrial();
+        throw new Error('session');
       }
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
       return data && data.text ? cleanExtract(data.text) : '';
     }
 
+    function isWikiPageId(pageid) {
+      return /^\d+$/.test(String(pageid || ''));
+    }
+
+    async function wikiRemainder(story) {
+      if (!story || !isWikiPageId(story.pageid)) return '';
+      try {
+        const pages = await wikiExtracts([story.pageid], { full: true });
+        const page = pages[String(story.pageid)];
+        const extra = extraAfter(story.extract, page && page.extract);
+        return extra.length >= 80 ? extra : '';
+      } catch {
+        return '';
+      }
+    }
+
     async function expandStory(story) {
       if (!story) return '';
-      const wikiId = story.pageid && String(story.pageid).indexOf('ai:') !== 0;
-      if (wikiId) {
+      if (trialIsActive()) {
         try {
-          const pages = await wikiExtracts([story.pageid], { full: true });
-          const page = pages[String(story.pageid)];
-          const extra = extraAfter(story.extract, page && page.extract);
-          if (extra.length >= 80) return extra;
-        } catch { /* fall through to AI */ }
+          const extra = await expandViaAI(story);
+          if (extra && extra.length >= 40) return extra;
+        } catch { /* leftover Wikipedia if this was a wiki tale */ }
       }
-      if (!trialIsActive()) return '';
-      return await expandViaAI(story);
+      return await wikiRemainder(story);
     }
 
     async function getStory(lat, lng, kmh) {
@@ -1946,8 +1958,7 @@
     function storyLine(story, extraOnly) {
       const spec = storyLengthSpec();
       const body = clipForSpeech(extraOnly || story.extract, extraOnly ? spec.extraChars : spec.speechChars);
-      if (extraOnly) return body;
-      if (story.continuation) return CONTINUE_REMARK + body;
+      if (extraOnly || story.continuation) return CONTINUE_REMARK + body;
       return story.title + '. ' + body;
     }
 
@@ -2305,13 +2316,8 @@
       populateGeminiVoices();
       updateVoicePanels();
       renderVersion();
-      const geminiOff = !!state.trialEnds && !trialIsActive();
-      $('voiceEngine').querySelector('option[value="gemini"]').disabled = geminiOff;
-      $('loreSource').querySelector('option[value="ai"]').disabled = geminiOff;
-      if (geminiOff) {
-        $('voiceEngine').value = 'device';
-        if ($('loreSource').value === 'ai') $('loreSource').value = 'wikipedia';
-      }
+      $('voiceEngine').querySelector('option[value="gemini"]').disabled = false;
+      $('loreSource').querySelector('option[value="ai"]').disabled = false;
       const hint = $('trialHint');
       if (hint) hint.textContent = trialHintText();
       $('noRepeatToggle').classList.toggle('on', state.settings.noRepeat !== false);
@@ -2571,7 +2577,7 @@
         if (logItem) logItem.extract = story.extract;
         rememberHeard({ ...story, continuation: false });
         saveState();
-        showHero(story, 'A little more');
+        showHero(story, 'More of the story');
         renderLog();
         speakStory(story, extra);
       } catch {
@@ -2663,9 +2669,6 @@
 
     $('voiceEngine').addEventListener('change', () => {
       state.settings.voiceEngine = $('voiceEngine').value;
-      if (state.settings.voiceEngine === 'gemini' && !trialIsActive()) {
-        state.settings.voiceEngine = 'device';
-      }
       saveState();
       renderSettings();
       scheduleVoicePreview();
@@ -2673,9 +2676,6 @@
 
     $('loreSource').addEventListener('change', () => {
       state.settings.loreSource = $('loreSource').value;
-      if (state.settings.loreSource === 'ai' && !trialIsActive()) {
-        state.settings.loreSource = 'wikipedia';
-      }
       saveState();
       renderSettings();
     });

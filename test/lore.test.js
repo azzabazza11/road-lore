@@ -90,6 +90,7 @@ describe('buildLorePrompt', () => {
     assert.match(prompt, /Harbour lights/);
     assert.match(prompt, /5–8 extra sentences/);
     assert.match(prompt, /maritime/);
+    assert.match(prompt, /FOLLOW-UP/);
     assert.match(prompt, /Do not retell the original/);
     assert.doesNotMatch(prompt, /About 6–8 sentences/);
   });
@@ -147,7 +148,9 @@ describe('client settings stay in sync', () => {
     assert.match(html, /data-length="medium"/);
     assert.match(html, /data-length="long"/);
     assert.match(html, /interests: selectedInterests\(\)/);
-    assert.match(html, /length: \(state\.settings && state\.settings\.storyLength\) \|\| 'medium'/);
+    assert.match(html, /length: storyLengthId\(\)/);
+    assert.match(html, /wikiUsesFullExtract\(/);
+    assert.match(html, /sharedClipPlan\(/);
     assert.deepEqual(Object.keys(LENGTHS), ['short', 'medium', 'long']);
   });
 
@@ -158,5 +161,13 @@ describe('client settings stay in sync', () => {
     assert.match(html, /heardTitles/);
     assert.match(html, /CONTINUE_REMARK/);
     assert.match(html, /more to that story/);
+  });
+
+  it('More prefers an AI follow-up before leftover Wikipedia', () => {
+    const block = html.match(/async function expandStory\(story\) \{([\s\S]*?)\n    \}/);
+    assert.ok(block, 'expandStory missing');
+    assert.match(block[1], /expandViaAI\(story\)/);
+    assert.match(block[1], /wikiRemainder\(story\)/);
+    assert.ok(block[1].indexOf('expandViaAI') < block[1].indexOf('wikiRemainder'));
   });
 });

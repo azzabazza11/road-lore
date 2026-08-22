@@ -41,7 +41,6 @@ const GEMINI_TEXT_URL =
 const RATE_WINDOW_MS = Number(process.env.RATE_WINDOW_MS) || 60000; // 1 minute
 const RATE_MAX = Number(process.env.RATE_MAX) || 20;                // per IP / window
 const DAILY_CAP = Number(process.env.DAILY_CAP) || 500;            // per instance / UTC day
-const TRIAL_MS = Number(process.env.TRIAL_MS) || 7 * 24 * 60 * 60 * 1000;
 const GCS_BUCKET = (process.env.GCS_BUCKET || '').trim();
 const MAP_TOKEN = (process.env.MAP_TOKEN || '').trim();
 
@@ -99,8 +98,8 @@ function verifyTrial(token) {
 }
 
 function trialInfo(payload) {
-  const ends = payload.t0 + TRIAL_MS;
-  return { active: Date.now() < ends, ends, started: payload.t0, id: payload.id };
+  // Gemini is open — session tokens still identify the device, but they do not expire.
+  return { active: true, ends: 0, started: payload.t0, id: payload.id };
 }
 
 function trialHeader(req) {
@@ -113,16 +112,7 @@ function requireTrial(req, res) {
     sendJson(res, 401, { error: 'trial_required', message: 'Start a session first.' });
     return null;
   }
-  const info = trialInfo(payload);
-  if (!info.active) {
-    sendJson(res, 402, {
-      error: 'trial_ended',
-      trialEnds: info.ends,
-      message: 'The complimentary week has ended. The on-device voice remains free.'
-    });
-    return null;
-  }
-  return info;
+  return trialInfo(payload);
 }
 
 const ipHits = new Map();
@@ -265,9 +255,9 @@ function handleSession(req, res) {
   sendJson(res, 200, {
     token: signTrial(payload),
     deviceId: payload.id,
-    trialActive: info.active,
-    trialEnds: info.ends,
-    trialDays: Math.round(TRIAL_MS / 86400000)
+    trialActive: true,
+    trialEnds: 0,
+    trialDays: 0
   });
 }
 
@@ -625,7 +615,7 @@ server.listen(PORT, () => {
   console.log('Gemini key: ' + (hasKey ? 'loaded from env' : 'MISSING (set GEMINI_API_KEY to enable /api/tts and /api/lore)'));
   console.log('Models: tts=' + GEMINI_MODEL + '  text=' + GEMINI_TEXT_MODEL);
   console.log('Limits: ' + RATE_MAX + ' req / ' + Math.round(RATE_WINDOW_MS / 1000) + 's per IP, ' + DAILY_CAP + ' / day (per instance)');
-  console.log('Trial: ' + Math.round(TRIAL_MS / 86400000) + ' day complimentary generated voice (then on-device voice)');
+  console.log('Gemini: open (session token required, no week limit)');
   console.log('TTS cache: ' + ttsCacheMode + (ttsCacheMode === 'off' ? ' (set GCS_BUCKET to reuse clips)' : ''));
   console.log('Nearby index: ' + clipIndexMode + (clipIndexMode === 'off' ? '' : '  GET /api/nearby'));
   console.log('Map: GET /api/clips + admin-map.html' + (MAP_TOKEN ? ' (MAP_TOKEN set)' : ' (trial or MAP_TOKEN)'));

@@ -1,4 +1,4 @@
-const CACHE = 'passenger-tales-v1.9.1';
+const CACHE = 'passenger-tales-v1.9.3';
 const ASSETS = [
   './',
   './index.html',

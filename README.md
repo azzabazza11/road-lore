@@ -30,7 +30,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - **Interests** — history, geology, nature, people, maritime, industry, culture, civic, news, stats, trivia (Settings)
 - **Story length** — short / medium / long
 - **AI stories** — grounded local stories from the wider area (backend + Gemini + web search)
-- **Narration** — Gemini voice by default on new installs (device voice after the complimentary week, or if you choose it)
+- **Narration** — Gemini voice by default on new installs (or the on-device voice if you choose it)
 - **Spoken-clip cache** — Cloud Run reuses a clip when the same story text and voice are requested again (GCS; off until `GCS_BUCKET` is set)
 - **Shared nearby stories** — travellers can replay AI-narrated clips left near a place (skips Gemini lore + TTS when a match exists)
 - **Clip map (admin)** — OpenStreetMap view of indexed story locations (`admin-map.html`)
@@ -62,15 +62,15 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.9.1**
+Version: **1.9.3**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
 Installed copies stay on the version they have until you tap **Update**. Settings and the story log are unchanged.
 
-## Complimentary week, then free voice
+## Session
 
-Web apps cannot read a phone’s MAC address. Passenger Tales keeps a private random device id on the phone and a signed 7-day trial token from `POST /api/session`. Generated voice and AI stories work during that week. After it ends, the **on-device voice** and Wikipedia nearby lore continue.
+Web apps cannot read a phone’s MAC address. Passenger Tales keeps a private random device id on the phone and a signed session token from `POST /api/session` (`x-road-lore-trial` header, name kept for compatibility). Gemini voice and AI stories are open — there is no week-long cut-off. Rate limits on Cloud Run still apply.
 
 ## Gemini AI voice
 
@@ -85,7 +85,7 @@ Story order on the phone:
 - **Auto:** Wikipedia → shared nearby → grounded AI lore
 - **AI stories:** shared nearby → grounded AI lore
 
-**Admin clip map (Phase 3).** Open **`/admin-map.html`** on Cloud Run (or Pages — it calls Cloud Run). Pins every indexed story location on OpenStreetMap. Metadata only (title, approx text, lat/lng) — no audio download. Access with an active trial session, or set env `MAP_TOKEN` and open `admin-map.html?token=…`.
+**Admin clip map (Phase 3).** Open **`/admin-map.html`** on Cloud Run (or Pages — it calls Cloud Run). Pins every indexed story location on OpenStreetMap. Metadata only (title, approx text, lat/lng) — no audio download. Access with a session, or set env `MAP_TOKEN` and open `admin-map.html?token=…`.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
 
