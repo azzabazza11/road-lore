@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.3" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.4" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -641,7 +641,7 @@
       <p class="hint" style="margin:-6px 0 12px">AI stories search the wider area for the topics you pick — great where Wikipedia is thin. Needs the backend running.</p>
       <label>Interests</label>
       <div class="chips" id="interestChips" role="group" aria-label="Story interests"></div>
-      <p class="seg-caption">Tap to include or skip. Civic is council plans; News is local headlines; Stats is town numbers; Trivia is odd facts.</p>
+      <p class="seg-caption">Tap to include or skip. Nearby cards prefer these topics — Wikipedia, shared clips, and AI.</p>
       <label>Story length</label>
       <div class="seg" id="lengthSeg" role="group" aria-label="Story length">
         <button type="button" data-length="short">Short</button>
@@ -765,7 +765,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.9.3';
+    const APP_VERSION = '1.9.4';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -872,6 +872,52 @@
 
     function selectedInterests() {
       return normalizeStoredInterests(state && state.settings && state.settings.interests);
+    }
+
+    function interestsNarrowed() {
+      return selectedInterests().length < STORY_INTEREST_IDS.length;
+    }
+
+    function matchingInterestIds(title, extract) {
+      const hay = (String(title || '') + ' ' + String(extract || '')).toLowerCase();
+      const selected = selectedInterests();
+      const out = [];
+      for (const spec of STORY_INTERESTS) {
+        if (!selected.includes(spec.id)) continue;
+        if (spec.wiki.test(hay)) out.push(spec.id);
+      }
+      return out;
+    }
+
+    function interestMatchBoost(title, extract) {
+      const n = matchingInterestIds(title, extract).length;
+      if (!n) return 0;
+      return n * (extract ? 100 : 70);
+    }
+
+    function clipFitsInterests(title, extract) {
+      if (!interestsNarrowed()) return true;
+      return matchingInterestIds(title, extract).length > 0;
+    }
+
+    function interestLabelFor(title, extract) {
+      const id = matchingInterestIds(title, extract)[0];
+      if (!id) return '';
+      const spec = STORY_INTERESTS.find(s => s.id === id);
+      return spec ? spec.label : '';
+    }
+
+    function storyKindEyebrow(story) {
+      if (story.continuation) return 'More of the story';
+      if (story.shared) return 'Shared story';
+      if (story.ai) return 'Local story';
+      return 'Found nearby';
+    }
+
+    function storyEyebrow(story, override) {
+      if (override) return override;
+      const kind = storyKindEyebrow(story);
+      return story.interestLabel ? story.interestLabel + ' · ' + kind : kind;
     }
 
     function storyLengthId() {
@@ -1648,34 +1694,31 @@
       const nearby = await wikiGeosearch(lat, lng, radiusM);
       if (!nearby.length) return null;
 
-      const ranked = nearby
-        .map(n => ({ ...n, score: scoreCandidate(n, lat, lng, kmh) }))
-        .filter(n => n.score >= 0)
-        .sort((a, b) => b.score - a.score);
+      const pool = nearby.filter(n => scoreCandidate(n, lat, lng, kmh) >= 0);
+      if (!pool.length) return null;
 
-      if (!ranked.length) return null;
-
-      const top = ranked.slice(0, 8);
-      const pages = await wikiExtracts(top.map(t => t.pageid), { full: wikiUsesFullExtract() });
-      const narrowed = selectedInterests().length < STORY_INTEREST_IDS.length;
+      const pages = await wikiExtracts(pool.map(t => t.pageid), { full: wikiUsesFullExtract() });
+      const narrowed = interestsNarrowed();
       const ready = [];
-      for (const cand of top) {
+      for (const cand of pool) {
         const page = pages[String(cand.pageid)];
         if (!page || page.missing != null) continue;
         const extract = cleanExtract(page.extract || '');
         if (extract.length < 80) continue;
-        const boost = interestMatchBoost(page.title || cand.title, extract);
+        const title = page.title || cand.title;
+        const boost = interestMatchBoost(title, extract);
         if (narrowed && boost <= 0) continue;
         ready.push({
           pageid: cand.pageid,
-          title: page.title || cand.title,
+          title,
           extract,
           dist: cand.dist,
           lat: cand.lat,
           lng: cand.lon,
           url: page.fullurl || ('https://en.wikipedia.org/?curid=' + cand.pageid),
-          score: cand.score + boost,
-          interestBoost: boost
+          score: scoreCandidate(cand, lat, lng, kmh, extract),
+          interestBoost: boost,
+          interestLabel: interestLabelFor(title, extract)
         });
       }
       ready.sort((a, b) => (b.interestBoost - a.interestBoost) || (b.score - a.score));
@@ -1773,13 +1816,15 @@
         const title = c.title || 'Shared story';
         const pid = 'shared:' + (normalizeTitle(title).slice(0, 48) || String(c.ttsKey || '').slice(0, 24));
         if (state.settings.noRepeat !== false && (recentlyHeard(pid, title) || titleInList(title, avoid))) continue;
+        if (!clipFitsInterests(title, c.text)) continue;
         const plan = sharedClipPlan(cleanExtract(c.text).length, lengthId);
         if (plan === 'skip') continue;
-        const score = 10000 - (Number(c.distance) || 0);
+        const boost = interestMatchBoost(title, c.text);
+        const score = 10000 - (Number(c.distance) || 0) + boost;
         if (score > bestScore) {
           bestScore = score;
           bestPlan = plan;
-          best = { ...c, pageid: pid };
+          best = { ...c, pageid: pid, interestLabel: interestLabelFor(title, c.text) };
         }
       }
       if (!best || !best.text) return null;
@@ -1792,6 +1837,7 @@
         lng: best.lng,
         ai: true,
         shared: true,
+        interestLabel: best.interestLabel || interestLabelFor(best.title, best.text),
         sharedPcm: bestPlan === 'play' && best.audio ? b64ToBytes(best.audio) : null,
         url: 'https://www.google.com/search?q=' + encodeURIComponent(best.title || 'local history')
       };
@@ -1817,6 +1863,7 @@
       const sources = Array.isArray(data.sources) ? data.sources : [];
       const continued = !!data.continue;
       if (state.settings.noRepeat !== false && titleInList(title, avoid) && !continued) return null;
+      if (interestsNarrowed() && !continued && !clipFitsInterests(title, data.text)) return null;
       return {
         pageid: 'ai:' + (normalizeTitle(title) || title.toLowerCase().replace(/\s+/g, ' ').trim()),
         title,
@@ -1825,6 +1872,7 @@
         sources,
         ai: true,
         continuation: continued,
+        interestLabel: interestLabelFor(title, data.text),
         lat, lng,
         url: sources[0] ? sources[0].uri : 'https://www.google.com/search?q=' + encodeURIComponent(title)
       };
@@ -1944,7 +1992,7 @@
 
     function showHero(story, eyebrow) {
       currentStory = story;
-      $('eyebrow').textContent = eyebrow || (story.continuation ? 'More of the story' : (story.shared ? 'Shared story' : (story.ai ? 'Local story' : 'Found nearby')));
+      $('eyebrow').textContent = storyEyebrow(story, eyebrow);
       $('topic').textContent = story.title;
       $('excerpt').textContent = clipForSpeech(story.extract, storyLengthSpec().excerptChars);
       $('placeVal').textContent = story.title;
@@ -1976,7 +2024,7 @@
     }
 
     function presentStory(story, { speakIt = true, recordLog = true } = {}) {
-      showHero(story, story.continuation ? 'More of the story' : (story.shared ? 'Shared story' : (story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on'))));
+      showHero(story, speakIt ? '' : 'Paused on');
 
       if (recordLog) {
         rememberHeard(story);
@@ -2577,7 +2625,7 @@
         if (logItem) logItem.extract = story.extract;
         rememberHeard({ ...story, continuation: false });
         saveState();
-        showHero(story, 'More of the story');
+        showHero(story, (story.interestLabel ? story.interestLabel + ' · ' : '') + 'More of the story');
         renderLog();
         speakStory(story, extra);
       } catch {

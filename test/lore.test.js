@@ -151,6 +151,7 @@ describe('client settings stay in sync', () => {
     assert.match(html, /length: storyLengthId\(\)/);
     assert.match(html, /wikiUsesFullExtract\(/);
     assert.match(html, /sharedClipPlan\(/);
+    assert.match(html, /clipFitsInterests\(/);
     assert.deepEqual(Object.keys(LENGTHS), ['short', 'medium', 'long']);
   });
 
