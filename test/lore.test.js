@@ -61,6 +61,7 @@ describe('buildLorePrompt', () => {
     assert.match(prompt, /About 2 sentences/);
     assert.match(prompt, /Focus on that topic/);
     assert.doesNotMatch(prompt, /shipwrecks, harbours/);
+    assert.doesNotMatch(prompt, /"continue":true/);
   });
 
   it('lists several interests and keeps medium length by default', () => {
@@ -74,6 +75,8 @@ describe('buildLorePrompt', () => {
     assert.match(prompt, /About 3–4 sentences/);
     assert.match(prompt, /One Tree Hill/);
     assert.match(prompt, /do not mash several topics/i);
+    assert.match(prompt, /Do not retell, paraphrase, or restart/i);
+    assert.match(prompt, /"continue":true/);
   });
 
   it('uses the chosen length when expanding a story', () => {
@@ -113,6 +116,20 @@ describe('buildLorePrompt', () => {
     assert.match(prompt, /Skip graphic crime/);
     assert.doesNotMatch(prompt, /geology and landforms/);
   });
+
+  it('caps the avoid list at 24 titles', () => {
+    const avoid = Array.from({ length: 40 }, (_, i) => 'Place ' + i);
+    const prompt = buildLorePrompt({
+      lat: -37.787,
+      lng: 175.279,
+      interests: ['history'],
+      avoid
+    });
+    assert.match(prompt, /Place 0/);
+    assert.match(prompt, /Place 23/);
+    assert.doesNotMatch(prompt, /Place 24/);
+    assert.match(prompt, /"continue":true/);
+  });
 });
 
 describe('client settings stay in sync', () => {
@@ -132,5 +149,14 @@ describe('client settings stay in sync', () => {
     assert.match(html, /interests: selectedInterests\(\)/);
     assert.match(html, /length: \(state\.settings && state\.settings\.storyLength\) \|\| 'medium'/);
     assert.deepEqual(Object.keys(LENGTHS), ['short', 'medium', 'long']);
+  });
+
+  it('wires don’t-repeat to a persistent title list and continuation remark', () => {
+    assert.match(html, /recentTitles\(AVOID_LIMIT\)/);
+    assert.match(html, /findStoryContinuation/);
+    assert.match(html, /data\.continue/);
+    assert.match(html, /heardTitles/);
+    assert.match(html, /CONTINUE_REMARK/);
+    assert.match(html, /more to that story/);
   });
 });

@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.0" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -653,6 +653,7 @@
         <span>Don’t repeat stories</span>
         <button class="toggle on" id="noRepeatToggle" type="button" aria-pressed="true"></button>
       </div>
+      <p class="hint" style="margin:-6px 0 12px">Skips places you’ve already heard for two weeks. If a tale has more, you’ll hear a continuation instead of a retread.</p>
       <label>Story frequency</label>
       <div class="seg" id="freqSeg" role="group" aria-label="Story frequency">
         <button type="button" data-km="0.5">Often</button>
@@ -763,7 +764,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.9.0';
+    const APP_VERSION = '1.9.1';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -786,6 +787,10 @@
     const LOOKUP_MIN_MS = 12000;
     const SAMPLE_MIN_MS = 1000;
     const LOG_KEEP = 5;
+    const HEARD_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+    const AVOID_LIMIT = 24;
+    const HEARD_TITLE_KEEP = 80;
+    const CONTINUE_REMARK = 'There\'s more to that story. ';
     const FREQ_STOPS = [0.5, 6, 16];
     const STORY_INTERESTS = [
       { id: 'history', label: 'History', wiki: /history|museum|heritage|castle|cathedral|fort|memorial|settlement|pioneer/i },
@@ -901,6 +906,7 @@
         installPrompted: false
       },
       heard: {},
+      heardTitles: {},
       log: [],
       deviceId: '',
       trialToken: '',
@@ -956,6 +962,7 @@
           ...p,
           settings: { ...defaultState().settings, ...(p.settings || {}) },
           heard: p.heard || {},
+          heardTitles: {},
           log: p.log || [],
           deviceId: p.deviceId || '',
           trialToken: p.trialToken || '',
@@ -984,6 +991,7 @@
           next.settings.seenIntro = !!next.settings.seenIntro;
         }
         if (next.log.length > LOG_KEEP) next.log.length = LOG_KEEP;
+        next.heardTitles = normalizeHeardTitles(p.heardTitles, next.log);
         return next;
       } catch {
         return defaultState();
@@ -1162,6 +1170,153 @@
       const end = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '));
       if (end > 180) return slice.slice(0, end + 1).trim();
       return slice.trim() + '…';
+    }
+
+    // Keep in sync with story-match.js (no bundler on the phone).
+    function normalizeTitle(s) {
+      return String(s || '')
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\b(the|a|an|of|and|in|on|at|to)\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function titleTokens(s) {
+      return normalizeTitle(s).split(' ').filter(t => t.length > 1);
+    }
+
+    function titlesSimilar(a, b) {
+      const na = normalizeTitle(a);
+      const nb = normalizeTitle(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      const shorter = na.length <= nb.length ? na : nb;
+      const longer = na.length <= nb.length ? nb : na;
+      if (shorter.length >= 8 && longer.includes(shorter)) {
+        const idx = longer.indexOf(shorter);
+        const before = idx === 0 || longer[idx - 1] === ' ';
+        const after = idx + shorter.length === longer.length || longer[idx + shorter.length] === ' ';
+        if (before && after) return true;
+      }
+      const ta = titleTokens(a);
+      const tb = titleTokens(b);
+      if (!ta.length || !tb.length) return false;
+      const setB = new Set(tb);
+      const inter = ta.filter(t => setB.has(t)).length;
+      const union = new Set(ta.concat(tb)).size;
+      if (inter >= 2 && union && inter / union >= 0.5) return true;
+      if (ta.length === 1 && tb.length === 1 && ta[0] === tb[0] && ta[0].length >= 5) return true;
+      return false;
+    }
+
+    function titleInList(title, list) {
+      if (!title || !list || !list.length) return false;
+      return list.some(item => titlesSimilar(title, item));
+    }
+
+    function normalizeHeardTitles(raw, log) {
+      const out = {};
+      if (raw && typeof raw === 'object') {
+        for (const [k, v] of Object.entries(raw)) {
+          if (typeof v === 'number') {
+            out[k] = { t: v, title: k, extract: '' };
+          } else if (v && typeof v === 'object' && v.t) {
+            out[k] = {
+              t: Number(v.t) || 0,
+              title: String(v.title || k),
+              extract: String(v.extract || ''),
+              pageid: v.pageid
+            };
+          }
+        }
+      }
+      if (Array.isArray(log)) {
+        for (const item of log) {
+          if (!item || !item.title) continue;
+          const norm = normalizeTitle(item.title);
+          if (!norm) continue;
+          if (!out[norm] || (item.t && item.t >= (out[norm].t || 0))) {
+            out[norm] = {
+              t: item.t || Date.now(),
+              title: item.title,
+              extract: item.extract || '',
+              pageid: item.pageid
+            };
+          }
+        }
+      }
+      return out;
+    }
+
+    function pruneHeard() {
+      const now = Date.now();
+      for (const [k, t] of Object.entries(state.heard || {})) {
+        if (!t || now - t > HEARD_TTL_MS) delete state.heard[k];
+      }
+      const titles = state.heardTitles || {};
+      for (const [k, row] of Object.entries(titles)) {
+        if (!row || !row.t || now - row.t > HEARD_TTL_MS) delete titles[k];
+      }
+      const keys = Object.keys(titles).sort((a, b) => (titles[b].t || 0) - (titles[a].t || 0));
+      for (const k of keys.slice(HEARD_TITLE_KEEP)) delete titles[k];
+    }
+
+    function rememberHeard(story) {
+      if (!story) return;
+      const t = Date.now();
+      if (!state.heard) state.heard = {};
+      if (!state.heardTitles) state.heardTitles = {};
+      if (story.pageid != null) state.heard[String(story.pageid)] = t;
+      const title = story.title || '';
+      const norm = normalizeTitle(title);
+      if (!norm) return;
+      const prev = state.heardTitles[norm];
+      const prevExtract = prev && prev.extract ? prev.extract : '';
+      const extract = story.continuation && prevExtract
+        ? (prevExtract + ' ' + (story.extract || ''))
+        : (story.extract || prevExtract || '');
+      state.heardTitles[norm] = {
+        t,
+        title,
+        extract: clipForSpeech(extract, 2500),
+        pageid: story.pageid != null ? story.pageid : (prev && prev.pageid)
+      };
+      pruneHeard();
+    }
+
+    function heardRecordFor(pageid, title) {
+      const titles = state.heardTitles || {};
+      const norm = normalizeTitle(title || '');
+      if (norm && titles[norm]) return titles[norm];
+      for (const row of Object.values(titles)) {
+        if (!row) continue;
+        if (pageid != null && String(row.pageid) === String(pageid)) return row;
+        if (title && titlesSimilar(row.title, title)) return row;
+      }
+      const logItem = (state.log || []).find(item => {
+        if (!item) return false;
+        if (pageid != null && String(item.pageid) === String(pageid)) return true;
+        return !!(title && titlesSimilar(item.title, title));
+      });
+      if (logItem) {
+        return { t: logItem.t, title: logItem.title, extract: logItem.extract || '', pageid: logItem.pageid };
+      }
+      return null;
+    }
+
+    function recentlyHeard(pageid, title) {
+      const now = Date.now();
+      if (pageid != null) {
+        const t = state.heard[String(pageid)];
+        if (t && now - t < HEARD_TTL_MS) return true;
+      }
+      const rec = heardRecordFor(pageid, title);
+      if (rec && rec.t && now - rec.t < HEARD_TTL_MS) return true;
+      return titleInList(title, recentTitles(AVOID_LIMIT));
     }
 
     function pickVoice() {
@@ -1440,7 +1595,7 @@
       url.searchParams.set('list', 'geosearch');
       url.searchParams.set('gscoord', lat + '|' + lng);
       url.searchParams.set('gsradius', String(Math.min(10000, Math.max(1000, Math.round(radiusM)))));
-      url.searchParams.set('gslimit', '12');
+      url.searchParams.set('gslimit', '20');
       url.searchParams.set('format', 'json');
       url.searchParams.set('origin', '*');
       const res = await fetch(url.toString());
@@ -1479,8 +1634,7 @@
     }
 
     function scoreCandidate(item, lat, lng, kmh, extract) {
-      const heard = state.heard[String(item.pageid)];
-      if (state.settings.noRepeat !== false && heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) return -1;
+      if (state.settings.noRepeat !== false && recentlyHeard(item.pageid, item.title)) return -1;
       let score = 1000 - item.dist;
       const title = item.title || '';
       if (/list of|disambiguation|railway station|highway|route \d|state highway/i.test(title)) score -= 400;
@@ -1530,10 +1684,58 @@
       return ready[0] || null;
     }
 
-    function recentTitles(limit = 8) {
+    async function findStoryContinuation(lat, lng) {
+      if (state.settings.noRepeat === false) return null;
+      const radiusM = Math.min(10000, state.settings.radiusKm * 1000);
+      let nearby = [];
+      try {
+        nearby = await wikiGeosearch(lat, lng, radiusM);
+      } catch {
+        return null;
+      }
+      const heardNearby = nearby.filter(n => recentlyHeard(n.pageid, n.title)).slice(0, 4);
+      if (!heardNearby.length) return null;
+      try {
+        const pages = await wikiExtracts(heardNearby.map(t => t.pageid), { full: true });
+        for (const cand of heardNearby) {
+          const page = pages[String(cand.pageid)];
+          if (!page || page.missing != null) continue;
+          const rec = heardRecordFor(cand.pageid, page.title || cand.title);
+          const already = rec && rec.extract ? rec.extract : '';
+          if (!already) continue;
+          const extra = extraAfter(already, page.extract || '');
+          if (extra.length < 80) continue;
+          return {
+            pageid: cand.pageid,
+            title: page.title || cand.title,
+            extract: extra,
+            dist: cand.dist,
+            lat: cand.lat,
+            lng: cand.lon,
+            continuation: true,
+            url: page.fullurl || ('https://en.wikipedia.org/?curid=' + cand.pageid)
+          };
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    }
+
+    function recentTitles(limit = AVOID_LIMIT) {
       const seen = [];
-      for (const item of state.log) {
-        if (item.title && !seen.includes(item.title)) seen.push(item.title);
+      const rows = Object.values(state.heardTitles || {})
+        .filter(row => row && row.title && row.t && Date.now() - row.t < HEARD_TTL_MS)
+        .sort((a, b) => (b.t || 0) - (a.t || 0));
+      for (const row of rows) {
+        if (seen.some(t => titlesSimilar(t, row.title))) continue;
+        seen.push(row.title);
+        if (seen.length >= limit) return seen;
+      }
+      for (const item of state.log || []) {
+        if (!item || !item.title) continue;
+        if (seen.some(t => titlesSimilar(t, item.title))) continue;
+        seen.push(item.title);
         if (seen.length >= limit) break;
       }
       return seen;
@@ -1550,7 +1752,7 @@
         limit: '12'
       });
       if (state.settings.noRepeat !== false) {
-        for (const t of recentTitles(8)) params.append('avoid', t);
+        for (const t of recentTitles(AVOID_LIMIT)) params.append('avoid', t);
       }
       const res = await fetch(apiUrl('/api/nearby?' + params.toString()), {
         headers: apiHeaders()
@@ -1567,10 +1769,11 @@
 
       let best = null;
       let bestScore = -1;
+      const avoid = state.settings.noRepeat !== false ? recentTitles(AVOID_LIMIT) : [];
       for (const c of clips) {
-        const pid = 'shared:' + String(c.ttsKey || c.title || '').slice(0, 24);
-        const heard = state.heard[pid];
-        if (state.settings.noRepeat !== false && heard && Date.now() - heard < 1000 * 60 * 60 * 24 * 14) continue;
+        const title = c.title || 'Shared story';
+        const pid = 'shared:' + (normalizeTitle(title).slice(0, 48) || String(c.ttsKey || '').slice(0, 24));
+        if (state.settings.noRepeat !== false && (recentlyHeard(pid, title) || titleInList(title, avoid))) continue;
         const score = 10000 - (Number(c.distance) || 0);
         if (score > bestScore) {
           bestScore = score;
@@ -1593,8 +1796,9 @@
     }
 
     async function findStoryAI(lat, lng) {
+      const avoid = state.settings.noRepeat !== false ? recentTitles(AVOID_LIMIT) : [];
       const body = { lat, lng, ...loreRequestFields() };
-      if (state.settings.noRepeat !== false) body.avoid = recentTitles(8);
+      if (avoid.length) body.avoid = avoid;
       const res = await fetch(apiUrl('/api/lore'), {
         method: 'POST',
         headers: apiHeaders(),
@@ -1610,13 +1814,16 @@
       if (!data || !data.text) return null;
       const title = data.title || 'Local lore';
       const sources = Array.isArray(data.sources) ? data.sources : [];
+      const continued = !!data.continue;
+      if (state.settings.noRepeat !== false && titleInList(title, avoid) && !continued) return null;
       return {
-        pageid: 'ai:' + title.toLowerCase().replace(/\s+/g, ' ').trim(),
+        pageid: 'ai:' + (normalizeTitle(title) || title.toLowerCase().replace(/\s+/g, ' ').trim()),
         title,
         extract: data.text,
         dist: null,
         sources,
         ai: true,
+        continuation: continued,
         lat, lng,
         url: sources[0] ? sources[0].uri : 'https://www.google.com/search?q=' + encodeURIComponent(title)
       };
@@ -1625,7 +1832,7 @@
     function extraAfter(already, full) {
       const a = cleanExtract(already);
       const f = cleanExtract(full);
-      if (!f || f.length < a.length + 60) return '';
+      if (!a || !f || f.length < a.length + 60) return '';
       if (f.indexOf(a.slice(0, Math.min(80, a.length))) === 0) {
         return cleanExtract(f.slice(a.length));
       }
@@ -1677,36 +1884,55 @@
       const src = state.settings.loreSource || 'auto';
       const allowAi = trialIsActive();
 
-      if (src === 'ai') {
-        if (allowAi) {
-          try {
-            const shared = await findStoryNearby(lat, lng);
-            if (shared) return shared;
-          } catch { /* fall through to AI lore */ }
-          return await findStoryAI(lat, lng);
-        }
-        return await findStory(lat, lng, kmh);
+      async function aiStory() {
+        try {
+          const shared = await findStoryNearby(lat, lng);
+          if (shared) return shared;
+        } catch { /* fall through to AI lore */ }
+        return await findStoryAI(lat, lng);
       }
 
-      if (src === 'wikipedia' || !allowAi) return await findStory(lat, lng, kmh);
+      if (src === 'ai') {
+        if (allowAi) {
+          const story = await aiStory();
+          if (story) return story;
+        }
+        const wiki = await findStory(lat, lng, kmh);
+        if (wiki) return wiki;
+        return await findStoryContinuation(lat, lng);
+      }
 
-      // Auto: Wikipedia, then shared clips, then grounded AI.
+      if (src === 'wikipedia' || !allowAi) {
+        const wiki = await findStory(lat, lng, kmh);
+        if (wiki) return wiki;
+        return await findStoryContinuation(lat, lng);
+      }
+
+      // Auto: new Wikipedia, then new shared clips, then new AI, then a continuation.
       let story = null;
       try {
         story = await findStory(lat, lng, kmh);
       } catch { /* fall through */ }
-      if (!story && allowAi) {
+      if (story) return story;
+      if (allowAi) {
         try {
           story = await findStoryNearby(lat, lng);
         } catch { /* fall through */ }
+        if (story) return story;
+        try {
+          story = await findStoryAI(lat, lng);
+        } catch { /* fall through */ }
+        if (story && !story.continuation) return story;
       }
-      if (!story && allowAi) story = await findStoryAI(lat, lng);
-      return story;
+      const more = await findStoryContinuation(lat, lng);
+      if (more) return more;
+      if (story && story.continuation) return story;
+      return null;
     }
 
     function showHero(story, eyebrow) {
       currentStory = story;
-      $('eyebrow').textContent = eyebrow || (story.shared ? 'Shared story' : (story.ai ? 'Local story' : 'Found nearby'));
+      $('eyebrow').textContent = eyebrow || (story.continuation ? 'More of the story' : (story.shared ? 'Shared story' : (story.ai ? 'Local story' : 'Found nearby')));
       $('topic').textContent = story.title;
       $('excerpt').textContent = clipForSpeech(story.extract, storyLengthSpec().excerptChars);
       $('placeVal').textContent = story.title;
@@ -1720,7 +1946,9 @@
     function storyLine(story, extraOnly) {
       const spec = storyLengthSpec();
       const body = clipForSpeech(extraOnly || story.extract, extraOnly ? spec.extraChars : spec.speechChars);
-      return extraOnly ? body : (story.title + '. ' + body);
+      if (extraOnly) return body;
+      if (story.continuation) return CONTINUE_REMARK + body;
+      return story.title + '. ' + body;
     }
 
     function speakStory(story, extraOnly) {
@@ -1737,16 +1965,21 @@
     }
 
     function presentStory(story, { speakIt = true, recordLog = true } = {}) {
-      showHero(story, story.shared ? 'Shared story' : (story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on')));
+      showHero(story, story.continuation ? 'More of the story' : (story.shared ? 'Shared story' : (story.ai ? 'Local story' : (speakIt ? 'Found nearby' : 'Paused on'))));
 
       if (recordLog) {
-        state.heard[String(story.pageid)] = Date.now();
-        state.log = state.log.filter(item => String(item.pageid) !== String(story.pageid));
+        rememberHeard(story);
+        state.log = state.log.filter(item => {
+          if (String(item.pageid) === String(story.pageid)) return false;
+          if (story.title && titlesSimilar(item.title, story.title)) return false;
+          return true;
+        });
+        const prevExtract = (heardRecordFor(story.pageid, story.title) || {}).extract || story.extract;
         state.log.unshift({
           t: Date.now(),
           pageid: story.pageid,
           title: story.title,
-          extract: story.extract,
+          extract: story.continuation ? prevExtract : story.extract,
           url: story.url,
           dist: story.dist,
           ai: !!story.ai,
@@ -2336,6 +2569,7 @@
         }
         const logItem = state.log.find(item => String(item.pageid) === String(story.pageid));
         if (logItem) logItem.extract = story.extract;
+        rememberHeard({ ...story, continuation: false });
         saveState();
         showHero(story, 'A little more');
         renderLog();
@@ -2474,6 +2708,7 @@
     $('btnReset').addEventListener('click', () => {
       if (!confirm('Forget which places have already been narrated?')) return;
       state.heard = {};
+      state.heardTitles = {};
       state.log = [];
       saveState();
       renderLog();

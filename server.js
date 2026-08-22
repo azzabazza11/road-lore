@@ -461,7 +461,8 @@ function parseLoreJson(text, fallbackTitle) {
   if (!obj) obj = { title: fallbackTitle || 'Local lore', text: cleaned };
   return {
     title: String(obj.title || fallbackTitle || 'Local lore').slice(0, 120),
-    text: String(obj.text || '').trim()
+    text: String(obj.text || '').trim(),
+    continue: obj.continue === true || obj.continue === 'true' || obj.continuation === true
   };
 }
 
@@ -479,7 +480,7 @@ async function handleLore(req, res) {
     const body = JSON.parse((await readBody(req)) || '{}');
     lat = Number(body.lat);
     lng = Number(body.lng);
-    avoid = Array.isArray(body.avoid) ? body.avoid.slice(0, 12).map(String) : [];
+    avoid = Array.isArray(body.avoid) ? body.avoid.slice(0, 24).map(String) : [];
     interests = lore.normalizeInterests(body.interests);
     length = lore.normalizeLength(body.length);
     if (body.expand && typeof body.expand === 'object') {
@@ -524,7 +525,9 @@ async function handleLore(req, res) {
     const data = await gRes.json();
     const cand = data?.candidates?.[0] || {};
     const rawText = (cand.content?.parts || []).map(p => p.text || '').join('');
-    const { title, text } = parseLoreJson(rawText);
+    const parsed = parseLoreJson(rawText);
+    const title = parsed.title;
+    const text = parsed.text;
     if (!text) {
       sendJson(res, 502, { error: 'No lore text in Gemini response' });
       return;
@@ -541,7 +544,7 @@ async function handleLore(req, res) {
       if (sources.length >= 5) break;
     }
 
-    sendJson(res, 200, { title, text, sources });
+    sendJson(res, 200, { title, text, continue: !!parsed.continue, sources });
   } catch (err) {
     const aborted = err && err.name === 'AbortError';
     console.error('[lore] proxy failure', String(err));
