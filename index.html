@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.5" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.6" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -773,7 +773,7 @@
   </div>
 
   <script>
-    const APP_VERSION = '1.9.5';
+    const APP_VERSION = '1.9.6';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1254,8 +1254,54 @@
     }
 
     // Keep in sync with story-match.js (no bundler on the phone).
-    function normalizeTitle(s) {
+    function stripChapterSuffix(s) {
       return String(s || '')
+        .replace(/[\s]*[-–—:,]+\s*(?:part|chapter|ch\.?)\s*(?:[ivxlcdm]+|\d+)\s*$/i, '')
+        .replace(/\s+(?:part|chapter|ch\.?)\s*(?:[ivxlcdm]+|\d+)\s*$/i, '')
+        .trim();
+    }
+
+    function romanToInt(str) {
+      const map = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+      const s = String(str || '').toLowerCase();
+      let n = 0;
+      let prev = 0;
+      for (let i = s.length - 1; i >= 0; i--) {
+        const v = map[s[i]];
+        if (!v) return 0;
+        n += v < prev ? -v : v;
+        prev = v;
+      }
+      return n;
+    }
+
+    function intToRoman(n) {
+      const nums = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+      let x = Math.max(1, Math.min(20, Number(n) || 1));
+      let out = '';
+      for (const [v, s] of nums) {
+        while (x >= v) {
+          out += s;
+          x -= v;
+        }
+      }
+      return out;
+    }
+
+    function chapterNumber(title) {
+      const s = String(title || '').trim();
+      const m = s.match(/(?:part|chapter|ch\.?)\s*([ivxlcdm]+|\d+)\s*$/i);
+      if (!m) return 1;
+      if (/^\d+$/.test(m[1])) return Math.max(1, parseInt(m[1], 10));
+      return romanToInt(m[1]) || 1;
+    }
+
+    function baseTitle(title) {
+      return stripChapterSuffix(title) || String(title || '').trim();
+    }
+
+    function normalizeTitle(s) {
+      return stripChapterSuffix(s)
         .toLowerCase()
         .normalize('NFKD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -1297,6 +1343,44 @@
     function titleInList(title, list) {
       if (!title || !list || !list.length) return false;
       return list.some(item => titlesSimilar(title, item));
+    }
+
+    function nextChapterTitle(title, existingTitles) {
+      const raw = String(title || '').trim() || 'Local lore';
+      const base = baseTitle(raw) || raw;
+      let highest = 0;
+      for (const item of existingTitles || []) {
+        if (!titlesSimilar(item, base)) continue;
+        highest = Math.max(highest, chapterNumber(item));
+      }
+      const incoming = chapterNumber(raw);
+      if (highest === 0) highest = incoming > 1 ? incoming - 1 : 1;
+      const next = incoming > highest ? incoming : highest + 1;
+      return base + ' — Part ' + intToRoman(next);
+    }
+
+    function spokenTopicName(title) {
+      let s = baseTitle(title).replace(/[.!?]+$/, '').trim();
+      if (!s) return '';
+      if (/^the\s+/i.test(s)) return 'the ' + s.replace(/^the\s+/i, '');
+      return s;
+    }
+
+    function continueRemark(title) {
+      const name = spokenTopicName(title);
+      if (!name) return CONTINUE_REMARK;
+      return 'There\'s more to the story of ' + name + '. ';
+    }
+
+    function knownStoryTitles() {
+      const seen = [];
+      for (const row of Object.values(state.heardTitles || {})) {
+        if (row && row.title) seen.push(row.title);
+      }
+      for (const item of state.log || []) {
+        if (item && item.title) seen.push(item.title);
+      }
+      return seen;
     }
 
     function normalizeHeardTitles(raw, log) {
@@ -1785,7 +1869,7 @@
           if (extra.length < 80) continue;
           return {
             pageid: cand.pageid,
-            title: page.title || cand.title,
+            title: nextChapterTitle(page.title || cand.title, knownStoryTitles()),
             extract: extra,
             dist: cand.dist,
             lat: cand.lat,
@@ -1896,10 +1980,11 @@
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
       if (!data || !data.text) return null;
-      const title = data.title || 'Local lore';
+      const rawTitle = data.title || 'Local lore';
       const sources = Array.isArray(data.sources) ? data.sources : [];
-      const continued = !!data.continue;
-      if (state.settings.noRepeat !== false && titleInList(title, avoid) && !continued) return null;
+      const avoidHit = state.settings.noRepeat !== false && titleInList(rawTitle, avoid);
+      const continued = !!data.continue || avoidHit;
+      const title = continued ? nextChapterTitle(rawTitle, knownStoryTitles()) : rawTitle;
       if (interestsNarrowed() && !continued && !clipFitsInterests(title, data.text)) return null;
       return {
         pageid: 'ai:' + (normalizeTitle(title) || title.toLowerCase().replace(/\s+/g, ' ').trim()),
@@ -2175,7 +2260,7 @@
     function storyLine(story, extraOnly) {
       const spec = storyLengthSpec();
       const body = clipForSpeech(extraOnly || story.extract, extraOnly ? spec.extraChars : spec.speechChars);
-      if (extraOnly || story.continuation) return CONTINUE_REMARK + body;
+      if (extraOnly || story.continuation) return continueRemark(story.title) + body;
       return story.title + '. ' + body;
     }
 
@@ -2791,12 +2876,17 @@
           $('eyebrow').textContent = 'Nothing more just now';
           return;
         }
+        story.title = nextChapterTitle(story.title, knownStoryTitles());
         story.extract = (story.extract ? story.extract + ' ' : '') + extra;
         if (currentStory && String(currentStory.pageid) === String(story.pageid)) {
           currentStory.extract = story.extract;
+          currentStory.title = story.title;
         }
         const logItem = state.log.find(item => String(item.pageid) === String(story.pageid));
-        if (logItem) logItem.extract = story.extract;
+        if (logItem) {
+          logItem.extract = story.extract;
+          logItem.title = story.title;
+        }
         rememberHeard({ ...story, continuation: false });
         saveState();
         showHero(story, (story.interestLabel ? story.interestLabel + ' · ' : '') + 'More of the story');

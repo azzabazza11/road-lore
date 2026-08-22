@@ -76,7 +76,10 @@ describe('buildLorePrompt', () => {
     assert.match(prompt, /One Tree Hill/);
     assert.match(prompt, /do not mash several topics/i);
     assert.match(prompt, /Do not retell, paraphrase, or restart/i);
+    assert.match(prompt, /same tale told again is not/i);
     assert.match(prompt, /"continue":true/);
+    assert.match(prompt, /Part II/);
+    assert.match(prompt, /title must be unique/i);
   });
 
   it('uses the chosen length when expanding a story', () => {
@@ -92,6 +95,8 @@ describe('buildLorePrompt', () => {
     assert.match(prompt, /maritime/);
     assert.match(prompt, /FOLLOW-UP/);
     assert.match(prompt, /Do not retell the original/);
+    assert.match(prompt, /Part II/);
+    assert.match(prompt, /"continue":true/);
     assert.doesNotMatch(prompt, /About 6–8 sentences/);
   });
 
@@ -161,7 +166,9 @@ describe('client settings stay in sync', () => {
     assert.match(html, /data\.continue/);
     assert.match(html, /heardTitles/);
     assert.match(html, /CONTINUE_REMARK/);
-    assert.match(html, /more to that story/);
+    assert.match(html, /function continueRemark\(/);
+    assert.match(html, /function nextChapterTitle\(/);
+    assert.match(html, /more to the story of/);
   });
 
   it('More prefers an AI follow-up before leftover Wikipedia', () => {

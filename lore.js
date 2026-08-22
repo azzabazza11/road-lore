@@ -134,10 +134,11 @@ function buildLorePrompt({ lat, lng, avoid = [], expand = null, interests, lengt
     '.';
   const avoidList = (avoid || []).map(t => String(t || '').trim()).filter(Boolean).slice(0, 24);
   const avoidClause = avoidList.length
-    ? 'The traveller has already heard stories about these — pick something clearly different: ' +
+    ?       'The traveller has already heard stories about these — pick something clearly different: ' +
       avoidList.join('; ') +
-      '. Do not retell, paraphrase, or restart any of those topics, even under a new title. ' +
-      'If the only true local story is one they already heard, do not start over — continue it instead with new facts only.'
+      '. Do not retell, paraphrase, or restart any of those topics, even under a slightly different title. ' +
+      'A new event or place is welcome. The same tale told again is not. ' +
+      'If the only true local story is one they already heard, continue it with NEW facts only — never the same opening in new words.'
     : '';
 
   if (expand && expand.text) {
@@ -155,7 +156,8 @@ function buildLorePrompt({ lat, lng, avoid = [], expand = null, interests, lengt
       'Friendly and easy to follow when read aloud while driving.',
       'Respond ONLY with minified JSON, no code fences: {"title":"' +
         title +
-        '","text":"<the extra narration only>"}'
+        ' Part II","text":"<the extra narration only>","continue":true}. ' +
+        'Use Part III (or the next part) if they already heard a Part II. Keep the title unique.'
     ].join(' ');
   }
 
@@ -171,7 +173,9 @@ function buildLorePrompt({ lat, lng, avoid = [], expand = null, interests, lengt
     avoidClause,
     avoidList.length
       ? 'Respond ONLY with minified JSON, no code fences: {"title":"<short evocative title, max 6 words>","text":"<the narration>"}. ' +
-        'If this continues a story they already heard, use {"title":"<same topic>","text":"<2–4 NEW sentences only>","continue":true} and do not repeat facts they already heard.'
+        'If this continues a story they already heard, use {"title":"<same topic> Part II","text":"<2–4 NEW sentences only>","continue":true}. ' +
+        'The title must be unique — Part II, Part III, or Chapter 2 — never the same card title they already heard. ' +
+        'Do not repeat facts they already heard. A brand-new event must use a clearly different title and omit continue.'
       : 'Respond ONLY with minified JSON, no code fences: {"title":"<short evocative title, max 6 words>","text":"<the narration>"}'
   ].filter(Boolean).join(' ');
 }
