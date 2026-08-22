@@ -1889,19 +1889,31 @@
       return data && data.text ? cleanExtract(data.text) : '';
     }
 
+    function isWikiPageId(pageid) {
+      return /^\d+$/.test(String(pageid || ''));
+    }
+
+    async function wikiRemainder(story) {
+      if (!story || !isWikiPageId(story.pageid)) return '';
+      try {
+        const pages = await wikiExtracts([story.pageid], { full: true });
+        const page = pages[String(story.pageid)];
+        const extra = extraAfter(story.extract, page && page.extract);
+        return extra.length >= 80 ? extra : '';
+      } catch {
+        return '';
+      }
+    }
+
     async function expandStory(story) {
       if (!story) return '';
-      const wikiId = story.pageid && String(story.pageid).indexOf('ai:') !== 0;
-      if (wikiId) {
+      if (trialIsActive()) {
         try {
-          const pages = await wikiExtracts([story.pageid], { full: true });
-          const page = pages[String(story.pageid)];
-          const extra = extraAfter(story.extract, page && page.extract);
-          if (extra.length >= 80) return extra;
-        } catch { /* fall through to AI */ }
+          const extra = await expandViaAI(story);
+          if (extra && extra.length >= 40) return extra;
+        } catch { /* leftover Wikipedia if this was a wiki tale */ }
       }
-      if (!trialIsActive()) return '';
-      return await expandViaAI(story);
+      return await wikiRemainder(story);
     }
 
     async function getStory(lat, lng, kmh) {
@@ -1970,8 +1982,7 @@
     function storyLine(story, extraOnly) {
       const spec = storyLengthSpec();
       const body = clipForSpeech(extraOnly || story.extract, extraOnly ? spec.extraChars : spec.speechChars);
-      if (extraOnly) return body;
-      if (story.continuation) return CONTINUE_REMARK + body;
+      if (extraOnly || story.continuation) return CONTINUE_REMARK + body;
       return story.title + '. ' + body;
     }
 
@@ -2595,7 +2606,7 @@
         if (logItem) logItem.extract = story.extract;
         rememberHeard({ ...story, continuation: false });
         saveState();
-        showHero(story, 'A little more');
+        showHero(story, 'More of the story');
         renderLog();
         speakStory(story, extra);
       } catch {
