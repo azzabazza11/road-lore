@@ -84,7 +84,7 @@ describe('nearby index', () => {
       lng: 175,
       radiusM: 10000,
       voice: 'Kore',
-      avoid: ['Gold rush']
+      avoid: ['The Gold Rush']
     })).length, 0);
   });
 

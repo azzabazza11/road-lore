@@ -1,6 +1,7 @@
 // Phase 2 location index: geohash buckets in GCS → nearby shared clips (story lat/lng only).
 
 const { ttsCacheKey, normalizeTtsText, normalizeVoice } = require('./tts-cache');
+const { titleInList } = require('./story-match');
 
 const BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
 const NEIGHBOR_STEPS = [
@@ -230,7 +231,7 @@ async function findNearby(indexStore, ttsStore, opts) {
   );
   const voice = normalizeVoice(opts.voice);
   const limit = Math.min(Math.max(Number(opts.limit) || 8, 1), 20);
-  const avoid = new Set((opts.avoid || []).map(String));
+  const avoid = (opts.avoid || []).map(String).filter(Boolean);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
 
   const prefixes = geohashPrefixes(lat, lng, radiusM);
@@ -244,7 +245,7 @@ async function findNearby(indexStore, ttsStore, opts) {
         if (seen.has(row.ttsKey)) continue;
         seen.add(row.ttsKey);
         if (row.voice !== voice) continue;
-        if (avoid.has(row.title)) continue;
+        if (titleInList(row.title, avoid)) continue;
         const distance = haversineM({ lat, lng }, { lat: row.lat, lng: row.lng });
         if (distance > radiusM) continue;
         candidates.push({ ...row, distance });

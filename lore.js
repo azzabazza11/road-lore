@@ -132,10 +132,12 @@ function buildLorePrompt({ lat, lng, avoid = [], expand = null, interests, lengt
     ', longitude ' +
     Number(lng).toFixed(5) +
     '.';
-  const avoidClause = avoid.length
+  const avoidList = (avoid || []).map(t => String(t || '').trim()).filter(Boolean).slice(0, 24);
+  const avoidClause = avoidList.length
     ? 'The traveller has already heard stories about these — pick something clearly different: ' +
-      avoid.join('; ') +
-      '.'
+      avoidList.join('; ') +
+      '. Do not retell, paraphrase, or restart any of those topics, even under a new title. ' +
+      'If the only true local story is one they already heard, do not start over — continue it instead with new facts only.'
     : '';
 
   if (expand && expand.text) {
@@ -166,7 +168,10 @@ function buildLorePrompt({ lat, lng, avoid = [], expand = null, interests, lengt
       ', friendly and easy to follow when read aloud while driving.',
     'Do not give directions or navigation instructions.',
     avoidClause,
-    'Respond ONLY with minified JSON, no code fences: {"title":"<short evocative title, max 6 words>","text":"<the narration>"}'
+    avoidList.length
+      ? 'Respond ONLY with minified JSON, no code fences: {"title":"<short evocative title, max 6 words>","text":"<the narration>"}. ' +
+        'If this continues a story they already heard, use {"title":"<same topic>","text":"<2–4 NEW sentences only>","continue":true} and do not repeat facts they already heard.'
+      : 'Respond ONLY with minified JSON, no code fences: {"title":"<short evocative title, max 6 words>","text":"<the narration>"}'
   ].filter(Boolean).join(' ');
 }
 
