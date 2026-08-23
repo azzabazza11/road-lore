@@ -1,5 +1,5 @@
 # Passenger Tales container for Google Cloud Run (or any container host).
-# Serves the static PWA plus /api/tts, /api/lore, and /api/session.
+# Serves the static PWA plus /api/tts, /api/lore, /api/session, and /api/suggest.
 # Gemini keys and GCS access are provided at runtime — never baked into the image.
 
 FROM node:22-slim

@@ -1,9 +1,9 @@
 // Passenger Tales dev/backend server.
 //
-// Serves the static PWA AND a small proxy endpoint (POST /api/tts) that calls
-// Google's Gemini text-to-speech on the server side. The Gemini API key is read
-// from the GEMINI_API_KEY environment variable and NEVER sent to the browser or
-// committed to the repo. The browser talks only to /api/tts.
+// Serves the static PWA and small proxy endpoints. Gemini TTS/lore and Overpass
+// suggestions run server-side. The Gemini API key is read from GEMINI_API_KEY
+// and NEVER sent to the browser or committed to the repo. The phone talks only
+// to /api/* on this origin (or Cloud Run from GitHub Pages).
 //
 // Usage:
 //   GEMINI_API_KEY=your-key node server.js
@@ -22,6 +22,7 @@ const crypto = require('crypto');
 const ttsCache = require('./tts-cache');
 const clipIndex = require('./clip-index');
 const lore = require('./lore');
+const suggestions = require('./suggestions');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -431,6 +432,53 @@ async function handleClips(req, res) {
   }
 }
 
+async function handleSuggest(req, res) {
+  if (!allowRequest(req, res)) return;
+  if (!requireTrial(req, res)) return;
+
+  const q = parseQuery(req);
+  const kind = q.get('kind');
+  const lat = Number(q.get('lat'));
+  const lng = Number(q.get('lng'));
+  const type = q.get('type');
+  const spec = suggestions.getKind(kind);
+  if (!spec) {
+    sendJson(res, 400, { error: 'invalid_kind', message: 'Unknown suggestion kind.' });
+    return;
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    sendJson(res, 400, { error: 'Missing/invalid lat,lng query params' });
+    return;
+  }
+
+  try {
+    const payload = await suggestions.runSuggest({
+      kind: spec.id,
+      lat,
+      lng,
+      type,
+      overpassUrl: process.env.OVERPASS_URL
+    });
+    sendJson(res, 200, payload);
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'invalid_kind') {
+      sendJson(res, 400, { error: 'invalid_kind' });
+      return;
+    }
+    if (code === 'bad_coords') {
+      sendJson(res, 400, { error: 'Missing/invalid lat,lng query params' });
+      return;
+    }
+    const aborted = err && err.name === 'AbortError';
+    console.error('[suggest] overpass failure', String(err).slice(0, 200));
+    sendJson(res, aborted ? 504 : 502, {
+      error: aborted ? 'Suggestion search timed out' : 'Suggestion search failed',
+      detail: String((err && err.detail) || err).slice(0, 200)
+    });
+  }
+}
+
 async function handleClipAudio(req, res) {
   if (!allowRequest(req, res)) return;
   if (!requireMapAccess(req, res)) return;
@@ -630,6 +678,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && routePath === '/api/nearby') return handleNearby(req, res);
   if (req.method === 'GET' && routePath === '/api/clips') return handleClips(req, res);
   if (req.method === 'GET' && routePath === '/api/clip') return handleClipAudio(req, res);
+  if (req.method === 'GET' && routePath === '/api/suggest') return handleSuggest(req, res);
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res);
   res.writeHead(405, securityHeaders({ 'Content-Type': 'text/plain' }, req));
   res.end('Method not allowed');
@@ -645,4 +694,5 @@ server.listen(PORT, () => {
   console.log('TTS cache: ' + ttsCacheMode + (ttsCacheMode === 'off' ? ' (set GCS_BUCKET to reuse clips)' : ''));
   console.log('Nearby index: ' + clipIndexMode + (clipIndexMode === 'off' ? '' : '  GET /api/nearby'));
   console.log('Map: GET /api/clips + GET /api/clip + admin-map.html' + (MAP_TOKEN ? ' (MAP_TOKEN set)' : ' (trial or MAP_TOKEN)'));
+  console.log('Suggest: GET /api/suggest (Overpass proxy, trial session)');
 });

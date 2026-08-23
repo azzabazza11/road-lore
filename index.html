@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.9.7" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -181,6 +181,58 @@
       line-height: 1.35;
     }
     .hero-sources[hidden] { display: none; }
+    .hero-maps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0 0;
+      flex-shrink: 0;
+    }
+    .hero-maps[hidden] { display: none; }
+    .hero-maps a {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .hero-maps a .maps-dist {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+    .hero-dining {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 0;
+      flex-shrink: 0;
+    }
+    .hero-dining[hidden] { display: none; }
+    .hero-dining button {
+      min-height: 36px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      font-weight: 700;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .hero-dining button.on {
+      background: var(--panel);
+      color: var(--ink);
+      border-color: var(--accent);
+    }
     .meta-row {
       display: flex;
       flex-wrap: wrap;
@@ -598,6 +650,8 @@
       <h2 class="topic" id="topic">Your roadside companion</h2>
       <p class="excerpt" id="excerpt">Start a trip and I’ll look up nearby places — towns, landmarks, history — then read a short intro aloud as you pass through.</p>
       <p class="hero-sources" id="heroSources" hidden></p>
+      <div class="hero-maps" id="heroMaps" hidden></div>
+      <div class="hero-dining chips" id="heroDiningTypes" hidden></div>
       <div class="meta-row">
         <span class="pill" id="placePill">Near <strong id="placeVal">—</strong></span>
         <span class="pill" id="distPill"><strong id="distVal">—</strong> km away</span>
@@ -616,6 +670,12 @@
       <span><span class="dot" id="gpsDot"></span> <span id="gpsStatus">GPS idle</span></span>
       <span id="voiceStatus">Voice ready</span>
       <span id="tripStatus">Trip 0.0 km</span>
+    </div>
+
+    <div class="panel" id="suggestPanel">
+      <h2>Suggestions</h2>
+      <p class="hint" style="margin-top:0">Tap once to find real nearby places — not stories, and not a saved filter.</p>
+      <div class="chips" id="suggestChips" role="group" aria-label="Place suggestions"></div>
     </div>
 
     <div id="installBanner" hidden>
@@ -772,8 +832,9 @@
     </div>
   </div>
 
+  <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.9.7';
+    const APP_VERSION = '1.10.0';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -794,7 +855,10 @@
       'Passenger Tales is ready. I will share a little local history as you travel.';
     const VOICE_SAMPLE_PREFIX = 'voicesample|';
     const LOOKUP_MIN_MS = 12000;
+    const SUGGESTION_HOLD_MS = 45000;
     const SAMPLE_MIN_MS = 1000;
+    const SUGGEST = window.PassengerSuggestions || {};
+    const SUGGEST_KINDS = SUGGEST.KINDS || [];
     const LOG_KEEP = 5;
     const HEARD_TTL_MS = 1000 * 60 * 60 * 24 * 14;
     const AVOID_LIMIT = 24;
@@ -1019,6 +1083,8 @@
     let tripMeters = 0;
     let lastLookupAt = 0;
     let lastStoryAtPos = null;
+    let suggestionHoldUntil = 0;
+    let suggestBusy = false;
     let currentStory = null;
     let speaking = false;
     let voices = [];
@@ -1193,6 +1259,18 @@
     function showScreen(name) {
       ['intro', 'home', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
       if (name !== 'intro') maybeShowUpdate();
+    }
+
+    function mapsHopUrl(lat, lng) {
+      if (SUGGEST.mapsDirUrl) return SUGGEST.mapsDirUrl(lat, lng);
+      const dest = Number(lat).toFixed(6) + ',' + Number(lng).toFixed(6);
+      return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(dest);
+    }
+
+    function formatPlaceDist(m) {
+      if (SUGGEST.formatDistance) return SUGGEST.formatDistance(m);
+      if (!Number.isFinite(m)) return '';
+      return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km';
     }
 
     function haversine(a, b) {
@@ -2243,18 +2321,87 @@
       el.hidden = !el.firstChild;
     }
 
+    function renderHeroMaps(story) {
+      const el = $('heroMaps');
+      if (!el) return;
+      el.replaceChildren();
+      const hops = [];
+      if (story && story.suggestion && Array.isArray(story.maps)) {
+        story.maps.forEach(p => {
+          if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
+          hops.push({
+            href: p.mapsUrl || mapsHopUrl(p.lat, p.lng),
+            label: p.name || 'Place',
+            dist: formatPlaceDist(p.dist)
+          });
+        });
+      } else if (story && Number.isFinite(story.lat) && Number.isFinite(story.lng)) {
+        hops.push({
+          href: mapsHopUrl(story.lat, story.lng),
+          label: 'Open in Maps',
+          dist: story.title || ''
+        });
+      }
+      hops.slice(0, 3).forEach(hop => {
+        const a = document.createElement('a');
+        a.href = hop.href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        const name = document.createElement('span');
+        name.textContent = hop.label;
+        a.append(name);
+        if (hop.dist) {
+          const dist = document.createElement('span');
+          dist.className = 'maps-dist';
+          dist.textContent = hop.dist;
+          a.append(dist);
+        }
+        el.append(a);
+      });
+      el.hidden = !el.firstChild;
+    }
+
+    function renderDiningTypes(story) {
+      const el = $('heroDiningTypes');
+      if (!el) return;
+      el.replaceChildren();
+      const types = story && story.suggestion && story.suggestKind === 'dining'
+        ? (story.diningTypes || [])
+        : [];
+      types.forEach(t => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.diningType = t.id;
+        btn.textContent = t.label;
+        btn.classList.toggle('on', !!(story.suggestType && story.suggestType === t.id));
+        el.append(btn);
+      });
+      el.hidden = !el.firstChild;
+    }
+
     function showHero(story, eyebrow) {
       currentStory = story;
-      $('eyebrow').textContent = storyEyebrow(story, eyebrow);
+      $('eyebrow').textContent = story && story.suggestion
+        ? (eyebrow || story.eyebrow || 'Nearby places')
+        : storyEyebrow(story, eyebrow);
       $('topic').textContent = story.title;
-      $('excerpt').textContent = clipForSpeech(story.extract, storyLengthSpec().excerptChars);
-      renderHeroSources(story);
-      $('placeVal').textContent = story.title;
-      $('distVal').textContent = story.dist == null ? '—' : (story.dist / 1000).toFixed(1);
+      $('excerpt').textContent = story.suggestion
+        ? (story.extract || '')
+        : clipForSpeech(story.extract, storyLengthSpec().excerptChars);
+      renderHeroSources(story && story.suggestion ? null : story);
+      renderHeroMaps(story);
+      renderDiningTypes(story);
+      $('placeVal').textContent = story.suggestion
+        ? (story.label || story.title)
+        : story.title;
+      const distM = story.suggestion && story.maps && story.maps[0]
+        ? story.maps[0].dist
+        : story.dist;
+      $('distVal').textContent = distM == null ? '—' : (distM / 1000).toFixed(1);
       $('placePill').classList.add('live');
       $('btnSkip').disabled = false;
       $('btnReplay').disabled = false;
-      $('btnMore').disabled = false;
+      $('btnMore').disabled = !story || !!story.suggestion;
     }
 
     function storyLine(story, extraOnly) {
@@ -2277,6 +2424,18 @@
         pcm: extraOnly || note ? null : story.sharedPcm
       };
       speak(spoken, null, audioKey(story.pageid, kind, voice), meta);
+    }
+
+    function speakSuggestion(card) {
+      if (!card) return;
+      const voice = resolveGeminiVoice();
+      speak(card.spoken || card.extract || '', null, audioKey('suggest', card.suggestKind || 'place', voice), { voice });
+    }
+
+    function presentSuggestion(card, { speakIt = true } = {}) {
+      suggestionHoldUntil = Date.now() + SUGGESTION_HOLD_MS;
+      showHero(card, card.eyebrow || 'Nearby places');
+      if (speakIt && state.settings.auto) speakSuggestion(card);
     }
 
     function presentStory(story, { speakIt = true, recordLog = true } = {}) {
@@ -2597,6 +2756,110 @@
       sel.value = opts.includes(cur) ? cur : 'Kore';
     }
 
+    function renderSuggestChips() {
+      const box = $('suggestChips');
+      if (!box || box.dataset.ready) return;
+      box.innerHTML = SUGGEST_KINDS.map(spec =>
+        '<button type="button" data-suggest="' + spec.id + '">' + escapeHtml(spec.label) + '</button>'
+      ).join('');
+      box.dataset.ready = '1';
+    }
+
+    function setSuggestBusy(on) {
+      suggestBusy = !!on;
+      const box = $('suggestChips');
+      if (box) {
+        box.querySelectorAll('button[data-suggest]').forEach(btn => {
+          btn.disabled = !!on;
+        });
+      }
+      const dining = $('heroDiningTypes');
+      if (dining) {
+        dining.querySelectorAll('button[data-dining-type]').forEach(btn => {
+          btn.disabled = !!on;
+        });
+      }
+    }
+
+    function ensureFix() {
+      return new Promise((resolve, reject) => {
+        if (lastPos && Number.isFinite(lastPos.lat) && Number.isFinite(lastPos.lng)) {
+          resolve(lastPos);
+          return;
+        }
+        if (!('geolocation' in navigator)) {
+          reject(new Error('no geo'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            lastPos = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              t: Date.now(),
+              kmh: 0
+            };
+            resolve(lastPos);
+          },
+          reject,
+          { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
+        );
+      });
+    }
+
+    async function requestSuggestion(kind, type) {
+      if (suggestBusy || introPlaying) return;
+      const spec = SUGGEST_KINDS.find(k => k.id === kind);
+      if (!spec) return;
+      stopSpeech();
+      setSuggestBusy(true);
+      $('eyebrow').textContent = type ? 'Refining…' : ('Looking for ' + spec.label.toLowerCase() + '…');
+      setGps('Searching nearby places…', 'warn');
+      try {
+        if (!state.trialToken) await refreshTrial();
+        const pos = await ensureFix();
+        const q = new URLSearchParams({
+          kind: spec.id,
+          lat: String(pos.lat),
+          lng: String(pos.lng)
+        });
+        if (type) q.set('type', type);
+        const res = await fetch(apiUrl('/api/suggest?' + q.toString()), { headers: apiHeaders() });
+        if (res.status === 401) {
+          refreshTrial();
+          throw new Error('session');
+        }
+        if (!res.ok) throw new Error('suggest ' + res.status);
+        const data = await res.json();
+        const card = {
+          suggestion: true,
+          suggestKind: spec.id,
+          suggestType: data.type || type || '',
+          label: spec.label,
+          title: data.title || ('Nearby ' + spec.label.toLowerCase()),
+          extract: data.extract || '',
+          spoken: data.spoken || data.extract || '',
+          maps: Array.isArray(data.places) ? data.places.slice(0, 3) : [],
+          diningTypes: Array.isArray(data.types) ? data.types : [],
+          eyebrow: spec.label,
+          lat: pos.lat,
+          lng: pos.lng,
+          dist: data.places && data.places[0] ? data.places[0].dist : null
+        };
+        presentSuggestion(card, { speakIt: true });
+        setGps('GPS live', 'on');
+      } catch (err) {
+        $('eyebrow').textContent = 'Couldn’t search just now';
+        $('topic').textContent = spec.label;
+        $('excerpt').textContent = lastPos
+          ? 'The place search didn’t come back. Try again in a moment.'
+          : 'Need a GPS fix first — start a trip or allow location.';
+        setGps('Place search failed', 'bad');
+      } finally {
+        setSuggestBusy(false);
+      }
+    }
+
     function renderInterestChips() {
       const box = $('interestChips');
       if (!box) return;
@@ -2675,7 +2938,8 @@
     }
 
     async function maybeLookup(pos, kmh) {
-      if (!tripOn || lookupBusy || speaking || introPlaying) return;
+      if (!tripOn || lookupBusy || speaking || introPlaying || suggestBusy) return;
+      if (Date.now() < suggestionHoldUntil) return;
       if (!state.settings.auto) return;
       if (!canTellAnother(pos)) return;
       const now = Date.now();
@@ -2849,8 +3113,9 @@
     });
 
     $('btnSkip').addEventListener('click', async () => {
-      if (lookupBusy || introPlaying) return;
+      if (lookupBusy || introPlaying || suggestBusy) return;
       stopSpeech();
+      if (currentStory && currentStory.suggestion) suggestionHoldUntil = 0;
       lastStoryAtPos = null;
       lastLookupAt = 0;
       if (!lastPos) {
@@ -2862,6 +3127,10 @@
 
     $('btnReplay').addEventListener('click', () => {
       if (!currentStory) return;
+      if (currentStory.suggestion) {
+        speakSuggestion(currentStory);
+        return;
+      }
       speakStory(currentStory);
     });
 
@@ -2943,6 +3212,18 @@
       saveState();
       applyTheme();
       renderSettings();
+    });
+
+    $('suggestChips').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-suggest]');
+      if (!btn) return;
+      requestSuggestion(btn.dataset.suggest);
+    });
+
+    $('heroDiningTypes').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-dining-type]');
+      if (!btn || !currentStory || !currentStory.suggestion) return;
+      requestSuggestion('dining', btn.dataset.diningType);
     });
 
     $('interestChips').addEventListener('click', e => {
@@ -3249,6 +3530,7 @@
 
     applyTheme();
     renderVersion();
+    renderSuggestChips();
     renderSettings();
     renderLog();
     syncInstallUi();

@@ -1,7 +1,8 @@
-const CACHE = 'passenger-tales-v1.9.7';
+const CACHE = 'passenger-tales-v1.10.0';
 const ASSETS = [
   './',
   './index.html',
+  './suggestions.js',
   './manifest.webmanifest',
   './manifest.json',
   './icon.svg',
