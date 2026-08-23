@@ -15,7 +15,10 @@ const {
   buildSuggestPayload,
   buildOverpassQuery,
   runSuggest,
-  getKind
+  getKind,
+  overpassEndpoints,
+  fetchOverpass,
+  OVERPASS_URLS
 } = require('../suggestions');
 
 const ORIGIN = { lat: -36.8485, lng: 174.7633 };
@@ -208,5 +211,30 @@ describe('Overpass query + runSuggest', () => {
       () => runSuggest({ kind: 'history', lat: 0, lng: 0, fetchImpl }),
       err => err.code === 'invalid_kind'
     );
+  });
+
+  it('tries the next Overpass mirror after the first fails', async () => {
+    assert.ok(OVERPASS_URLS.length >= 2);
+    assert.deepEqual(
+      overpassEndpoints('https://custom.example/api'),
+      ['https://custom.example/api'].concat(OVERPASS_URLS)
+    );
+    const seen = [];
+    const fetchImpl = async (url) => {
+      seen.push(url);
+      if (seen.length === 1) {
+        const err = new Error('overpass 429');
+        err.status = 429;
+        throw err;
+      }
+      return {
+        ok: true,
+        json: async () => ({ elements: [] })
+      };
+    };
+    const data = await fetchOverpass('[out:json];out;', { fetchImpl });
+    assert.deepEqual(data, { elements: [] });
+    assert.equal(seen[0], OVERPASS_URLS[0]);
+    assert.equal(seen[1], OVERPASS_URLS[1]);
   });
 });

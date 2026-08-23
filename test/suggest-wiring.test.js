@@ -44,4 +44,12 @@ describe('suggestion + Maps wiring', () => {
     assert.match(agents, /single-use/i);
     assert.match(agents, /Overpass/);
   });
+
+  it('falls back to Overpass on the phone when Cloud Run has no /api/suggest', () => {
+    assert.match(html, /function fetchSuggestPayload/);
+    assert.match(html, /SUGGEST\.runSuggest/);
+    assert.match(html, /overpass-api\.de/);
+    assert.match(html, /overpass\.kumi\.systems/);
+    assert.match(html, /connection problem, not an empty area/);
+  });
 });

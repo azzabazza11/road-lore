@@ -11,8 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
@@ -834,7 +834,7 @@
 
   <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.10.0';
+    const APP_VERSION = '1.10.1';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -2807,6 +2807,40 @@
       });
     }
 
+    async function fetchSuggestFromCloud(kind, type, pos) {
+      const q = new URLSearchParams({
+        kind,
+        lat: String(pos.lat),
+        lng: String(pos.lng)
+      });
+      if (type) q.set('type', type);
+      let res = await fetch(apiUrl('/api/suggest?' + q.toString()), { headers: apiHeaders() });
+      if (res.status === 401) {
+        await refreshTrial();
+        res = await fetch(apiUrl('/api/suggest?' + q.toString()), { headers: apiHeaders() });
+      }
+      if (res.ok) return res.json();
+      const err = new Error('suggest ' + res.status);
+      err.status = res.status;
+      throw err;
+    }
+
+    async function fetchSuggestPayload(kind, type, pos) {
+      try {
+        return await fetchSuggestFromCloud(kind, type, pos);
+      } catch (err) {
+        const status = err && err.status;
+        const canFallback = !status || status === 404 || status === 502 || status === 504 || status >= 500;
+        if (!canFallback || !SUGGEST.runSuggest) throw err;
+        return SUGGEST.runSuggest({
+          kind,
+          lat: pos.lat,
+          lng: pos.lng,
+          type
+        });
+      }
+    }
+
     async function requestSuggestion(kind, type) {
       if (suggestBusy || introPlaying) return;
       const spec = SUGGEST_KINDS.find(k => k.id === kind);
@@ -2818,19 +2852,7 @@
       try {
         if (!state.trialToken) await refreshTrial();
         const pos = await ensureFix();
-        const q = new URLSearchParams({
-          kind: spec.id,
-          lat: String(pos.lat),
-          lng: String(pos.lng)
-        });
-        if (type) q.set('type', type);
-        const res = await fetch(apiUrl('/api/suggest?' + q.toString()), { headers: apiHeaders() });
-        if (res.status === 401) {
-          refreshTrial();
-          throw new Error('session');
-        }
-        if (!res.ok) throw new Error('suggest ' + res.status);
-        const data = await res.json();
+        const data = await fetchSuggestPayload(spec.id, type, pos);
         const card = {
           suggestion: true,
           suggestKind: spec.id,
@@ -2847,14 +2869,17 @@
           dist: data.places && data.places[0] ? data.places[0].dist : null
         };
         presentSuggestion(card, { speakIt: true });
-        setGps('GPS live', 'on');
+        setGps(card.maps.length ? 'GPS live' : 'GPS live · nothing nearby', 'on');
       } catch (err) {
-        $('eyebrow').textContent = 'Couldn’t search just now';
+        const noGps = !lastPos;
+        $('eyebrow').textContent = noGps ? 'Need a location' : 'Couldn’t search just now';
         $('topic').textContent = spec.label;
-        $('excerpt').textContent = lastPos
-          ? 'The place search didn’t come back. Try again in a moment.'
-          : 'Need a GPS fix first — start a trip or allow location.';
-        setGps('Place search failed', 'bad');
+        $('excerpt').textContent = noGps
+          ? 'Need a GPS fix first — start a trip or allow location.'
+          : 'The place search did not finish. That is a connection problem, not an empty area.';
+        renderHeroMaps({ suggestion: true, maps: [] });
+        renderDiningTypes({ suggestion: true, suggestKind: spec.id, diningTypes: [] });
+        setGps(noGps ? 'Need GPS first…' : 'Place search failed', 'bad');
       } finally {
         setSuggestBusy(false);
       }

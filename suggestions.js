@@ -7,16 +7,20 @@
   if (typeof module === 'object' && module.exports) module.exports = exp;
   else root.PassengerSuggestions = exp;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-  const DEFAULT_OVERPASS = 'https://overpass-api.de/api/interpreter';
+  const OVERPASS_URLS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+  ];
+  const DEFAULT_OVERPASS = OVERPASS_URLS[0];
   const MAPS_MAX = 3;
 
   const KINDS = [
-    { id: 'entertainment', label: 'Entertainment', radiusM: 8000 },
-    { id: 'events', label: 'Events', radiusM: 12000 },
-    { id: 'dining', label: 'Dining', radiusM: 5000 },
-    { id: 'sightseeing', label: 'Sightseeing', radiusM: 10000 },
-    { id: 'parks', label: 'Parks / reserves', radiusM: 8000 },
-    { id: 'restroom', label: 'Restroom', radiusM: 3000 }
+    { id: 'entertainment', label: 'Entertainment', radiusM: 15000 },
+    { id: 'events', label: 'Events', radiusM: 20000 },
+    { id: 'dining', label: 'Dining', radiusM: 15000 },
+    { id: 'sightseeing', label: 'Sightseeing', radiusM: 15000 },
+    { id: 'parks', label: 'Parks / reserves', radiusM: 15000 },
+    { id: 'restroom', label: 'Restroom', radiusM: 10000 }
   ];
 
   const KIND_IDS = KINDS.map(k => k.id);
@@ -307,9 +311,22 @@
     return '[out:json][timeout:25];\n(\n' + parts.join('\n') + '\n);\nout center 80;';
   }
 
-  async function fetchOverpass(query, { url, fetchImpl, timeoutMs } = {}) {
-    const endpoint = url || DEFAULT_OVERPASS;
-    const fetchFn = fetchImpl || fetch;
+  function overpassEndpoints(url) {
+    const extra = [];
+    if (Array.isArray(url)) extra.push(...url);
+    else if (url) extra.push(url);
+    const seen = new Set();
+    const out = [];
+    for (const item of extra.concat(OVERPASS_URLS)) {
+      const endpoint = String(item || '').trim();
+      if (!endpoint || seen.has(endpoint)) continue;
+      seen.add(endpoint);
+      out.push(endpoint);
+    }
+    return out.length ? out : OVERPASS_URLS.slice();
+  }
+
+  async function fetchOneOverpass(query, endpoint, fetchFn, timeoutMs) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = setTimeout(() => {
       if (controller) controller.abort();
@@ -338,6 +355,20 @@
     }
   }
 
+  async function fetchOverpass(query, { url, fetchImpl, timeoutMs } = {}) {
+    const fetchFn = fetchImpl || fetch;
+    const endpoints = overpassEndpoints(url);
+    let lastErr;
+    for (const endpoint of endpoints) {
+      try {
+        return await fetchOneOverpass(query, endpoint, fetchFn, timeoutMs);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error('overpass failed');
+  }
+
   async function runSuggest({ kind, lat, lng, type, fetchImpl, overpassUrl }) {
     const spec = getKind(kind);
     if (!spec) {
@@ -361,6 +392,8 @@
   }
 
   return {
+    OVERPASS_URLS,
+    DEFAULT_OVERPASS,
     KINDS,
     KIND_IDS,
     DINING_TYPES,
@@ -382,6 +415,7 @@
     pickMapsChoices,
     buildSuggestPayload,
     buildOverpassQuery,
+    overpassEndpoints,
     fetchOverpass,
     runSuggest
   };

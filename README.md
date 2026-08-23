@@ -63,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.10.0**
+Version: **1.10.1**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -89,6 +89,8 @@ Story order on the phone:
 **Admin clip map (Phase 3).** Open **`/admin-map.html`** on Cloud Run (or Pages — it calls Cloud Run). Pins every indexed story location on OpenStreetMap. The pin list is metadata only; **Play** on a card fetches that clip from storage (`GET /api/clip?key=`) and plays it — no new Gemini call. Access with a session, or set env `MAP_TOKEN` and open `admin-map.html?token=…`.
 
 **Suggestions (1.10.0).** Home-screen chips are one-shot local searches (dining, parks, restrooms, sightseeing, entertainment, events) — not story interests. Cloud Run proxies OSM Overpass at `GET /api/suggest`. The card lists up to three places with Google Maps directions hops. Dining starts as a mix of what was found; type chips appear only when that food type actually hit. Auto-lore waits ~45 seconds so the card is not overwritten.
+
+**1.10.1.** If Cloud Run is still an older revision (`/api/suggest` 404), the phone searches OpenStreetMap itself. An empty rural result is “nothing nearby,” not “place search failed.”
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
 
