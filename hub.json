@@ -32,6 +32,11 @@
       "notes": "Camping and accommodation suggestions, with Maps, website, and phone launch when OSM has the details."
     },
     {
+      "version": "1.10.4",
+      "date": "2026-08-23",
+      "notes": "Colourful sunset-road app icon with teal story waves."
+    },
+    {
       "version": "1.10.3",
       "date": "2026-08-23",
       "notes": "Suggestion results show a Wikimedia thumb when the place has Wikipedia, Wikidata, or Commons media."

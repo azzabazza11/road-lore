@@ -96,6 +96,8 @@ Story order on the phone:
 
 **1.10.3.** Suggestion rows show a thumbnail when OpenStreetMap links the place to Wikipedia, Wikidata, or Wikimedia Commons. No stock photos.
 
+**1.10.4.** Colourful sunset-road app icon with teal story waves.
+
 **1.11.0.** Camping and Accommodation chips. Result cards show website and phone from OSM and launch Maps, the site, or a call on tap.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
