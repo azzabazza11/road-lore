@@ -54,4 +54,6 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 
 **Dining:** one button. First card = **mix of what was found** (fine dining → restaurant → cafe → pub → bakery → fast food). Food-type chips **only from actual hits**. User can jump to Maps or tap a type to refine. Do not invent a type with no nearby hit.
 
-`GET /api/suggest?kind=&lat=&lng=&type=` (trial session). Phone CSP stays Cloud Run + Wikipedia. Hold auto-lore ~45s after a suggestion so the card is not immediately overwritten. Do not log suggestions as heard tales.
+`GET /api/suggest?kind=&lat=&lng=&type=` (trial session). If Cloud Run is behind Pages (404/5xx), the phone searches Overpass directly (`overpass-api.de` / `overpass.kumi.systems` in CSP). Empty rural hits show “nothing nearby,” not a failure. Hold auto-lore ~45s after a suggestion so the card is not immediately overwritten. Do not log suggestions as heard tales.
+
+**Shipped 1.10.1:** phone Overpass fallback so Suggestions work before Cloud Run is redeployed. Cloud Run is still 1.7.0 until `GCP_SA_KEY` is set and the deploy Action runs.
