@@ -113,6 +113,24 @@
       font-size: 0.8rem;
       margin-top: 0.45rem;
     }
+    .leaflet-popup-content .play-row {
+      margin-top: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .leaflet-popup-content .play-row button {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.88rem;
+    }
+    .leaflet-popup-content .play-row button[disabled] {
+      opacity: 0.55;
+      cursor: default;
+    }
+    .play-status {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
     .pin {
       width: 100%;
       height: 100%;
@@ -141,7 +159,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const APP_VERSION = '1.9.6';
+    const APP_VERSION = '1.9.7';
     const API_ORIGIN = (function () {
       const h = location.hostname;
       if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
@@ -250,6 +268,87 @@
       } catch { return iso; }
     }
 
+    let audioCtx = null;
+    let playingSource = null;
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) audioCtx = new Ctx();
+      }
+      return audioCtx;
+    }
+
+    function stopPlayback() {
+      if (playingSource) {
+        try { playingSource.stop(); } catch {}
+        playingSource = null;
+      }
+    }
+
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+
+    function playPcm(pcmBytes) {
+      return new Promise((resolve, reject) => {
+        const ctx = getAudioCtx();
+        if (!ctx) {
+          reject(new Error('no audio'));
+          return;
+        }
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        stopPlayback();
+        const samples = pcmBytes.length / 2;
+        const buffer = ctx.createBuffer(1, samples, 24000);
+        const ch = buffer.getChannelData(0);
+        const view = new DataView(pcmBytes.buffer, pcmBytes.byteOffset, pcmBytes.byteLength);
+        for (let i = 0; i < samples; i++) ch[i] = view.getInt16(i * 2, true) / 32768;
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        playingSource = src;
+        src.onended = () => {
+          if (playingSource === src) playingSource = null;
+          resolve();
+        };
+        src.onerror = () => reject(new Error('playback'));
+        src.start();
+      });
+    }
+
+    async function fetchStoredClip(ttsKey) {
+      const params = new URLSearchParams({ key: ttsKey });
+      const tok = mapTokenFromUrl();
+      if (tok) params.set('token', tok);
+      const res = await fetch(apiUrl('/api/clip?' + params.toString()), {
+        headers: clipHeaders()
+      });
+      if (!res.ok) throw new Error('clip ' + res.status);
+      const data = await res.json();
+      if (!data || !data.audio) throw new Error('no audio');
+      return data;
+    }
+
+    async function playStoredClip(ttsKey, btn, statusEl) {
+      if (!ttsKey || !btn) return;
+      btn.disabled = true;
+      if (statusEl) statusEl.textContent = 'Loading…';
+      try {
+        const clip = await fetchStoredClip(ttsKey);
+        if (statusEl) statusEl.textContent = 'Playing…';
+        await playPcm(b64ToBytes(clip.audio));
+        if (statusEl) statusEl.textContent = '';
+      } catch {
+        if (statusEl) statusEl.textContent = 'Couldn’t play';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
     async function loadClips() {
       setStatus('Fetching clips…');
       await ensureSession();
@@ -276,12 +375,24 @@
       for (const c of clips) {
         if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue;
         const m = L.marker([c.lat, c.lng], { icon });
+        const playBtn = c.ttsKey
+          ? '<div class="play-row"><button type="button" data-play="' + escapeHtml(c.ttsKey) + '">Play</button><span class="play-status"></span></div>'
+          : '';
         m.bindPopup(
           '<strong>' + escapeHtml(c.title || 'Untitled') + '</strong>' +
           escapeHtml(c.textPreview || '') +
           '<div class="meta">' + escapeHtml(c.voice || '') +
-          (c.createdAt ? ' · ' + escapeHtml(whenFmt(c.createdAt)) : '') + '</div>'
+          (c.createdAt ? ' · ' + escapeHtml(whenFmt(c.createdAt)) : '') + '</div>' +
+          playBtn
         );
+        m.on('popupopen', ev => {
+          const root = ev.popup.getElement();
+          const btn = root && root.querySelector('[data-play]');
+          if (!btn) return;
+          btn.addEventListener('click', () => {
+            playStoredClip(btn.getAttribute('data-play'), btn, root.querySelector('.play-status'));
+          });
+        });
         m.addTo(layer);
         markers.push(m);
         bounds.push([c.lat, c.lng]);
