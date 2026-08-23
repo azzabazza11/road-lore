@@ -57,3 +57,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 `GET /api/suggest?kind=&lat=&lng=&type=` (trial session). If Cloud Run is behind Pages (404/5xx), the phone searches Overpass directly (`overpass-api.de` / `overpass.kumi.systems` in CSP). Empty rural hits show “nothing nearby,” not a failure. Hold auto-lore ~45s after a suggestion so the card is not immediately overwritten. Do not log suggestions as heard tales.
 
 **Shipped 1.10.1:** phone Overpass fallback so Suggestions work before Cloud Run is redeployed. Cloud Run is still 1.7.0 until `GCP_SA_KEY` is set and the deploy Action runs.
+
+**Shipped 1.10.2:** Suggestions panel lists the found places. Each row has a Maps icon that opens `https://www.google.com/maps/search/?api=1&query=` with the place name and coordinates (pin loaded, not only a directions hop).

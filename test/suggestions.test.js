@@ -4,6 +4,7 @@ const {
   KIND_IDS,
   DINING_TYPE_IDS,
   mapsDirUrl,
+  mapsPlaceUrl,
   formatDistance,
   speakDistance,
   classifyDining,
@@ -47,6 +48,14 @@ describe('maps + distance', () => {
     assert.equal(
       url,
       'https://www.google.com/maps/dir/?api=1&destination=-36.848460%2C174.763330'
+    );
+  });
+
+  it('opens Google Maps with the place pin loaded', () => {
+    const url = mapsPlaceUrl(-36.84846, 174.76333, 'Thai House');
+    assert.equal(
+      url,
+      'https://www.google.com/maps/search/?api=1&query=Thai%20House%20-36.848460%2C174.763330'
     );
   });
 
