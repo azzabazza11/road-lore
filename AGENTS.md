@@ -41,3 +41,24 @@ When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registe
 `admin-map.html` + `GET /api/clips` (metadata pins on OSM). Trial session or `MAP_TOKEN`. Do not add report/hide/expiry (Phase 4) until asked.
 
 **Shipped 1.9.7:** Play on the pin card. `GET /api/clip?key=` loads one GCS object by `ttsKey` (trial or `MAP_TOKEN`). Pin list stays metadata-only. L16 playback in the map page. No Gemini.
+
+## Suggestions + Maps (asked, not started)
+
+Suggestions are **not stories**. They are **real-world, searched, confirmed local places** (live local search — not Gemini lore, not Wikipedia tales, not the shared clip library).
+
+**Single-use, not toggles.** Do not put these on the story-interest chip row and do not persist them as Settings filters. Each tap **fires immediately** and is **prioritized** over the current tale lookup: run that search now, show the suggestion card, do not wait for the next kilometre. The control returns to idle after the search; it does not stay “on”.
+
+Kinds (slightly separate space from Interests — one-shot buttons):
+
+- Entertainment
+- Events
+- Dining
+- Sightseeing
+- Parks / reserves
+- Restroom
+
+**Nearest first.** Rank by distance from the current GPS fix. Can return more than one. The card’s Maps section lists **up to three** confirmed nearby choices (label + distance), each launching Google Maps with that destination loaded (`maps/dir/?api=1&destination=` lat,lng or place query). Passenger hop-out, not in-app navigation. Do not put a share icon on the home top bar.
+
+A lore/Wikipedia story card can still get a single Maps hop when it has a place.
+
+**Dining.** One button. The first card is a **selection of what was found nearby**, spanning high-end, casual, fast food, bakeries, and the like. Populate **food-type choices from those found offerings** (only types that actually exist in the result set). The passenger can jump straight to Maps (up to three places) or tap a type to run a **specified local search** and refresh the Maps choices. Do not invent a type that had no nearby hit.
