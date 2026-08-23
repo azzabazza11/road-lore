@@ -41,3 +41,17 @@ When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registe
 `admin-map.html` + `GET /api/clips` (metadata pins on OSM). Trial session or `MAP_TOKEN`. Do not add report/hide/expiry (Phase 4) until asked.
 
 **Shipped 1.9.7:** Play on the pin card. `GET /api/clip?key=` loads one GCS object by `ttsKey` (trial or `MAP_TOKEN`). Pin list stays metadata-only. L16 playback in the map page. No Gemini.
+
+## Suggestions + Maps (1.10.0)
+
+Suggestions are **not stories**. They find **real-world, confirmed local places** (OSM via Overpass on Cloud Run). Buttons are **single-use, not toggles** — not on the story-interest chip row, not persisted as Settings filters. A tap **fires immediately** and is **prioritized** over the tale pipeline; control returns to idle after the search.
+
+Kinds (separate space): Entertainment, Events, Dining, Sightseeing, Parks / reserves, Restroom.
+
+**Nearest first**, more than one result. Card Maps section: **up to three** choices (label + distance), each `https://www.google.com/maps/dir/?api=1&destination=lat,lng`. Passenger hop-out, not in-app nav.
+
+Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
+
+**Dining:** one button. First card = **mix of what was found** (fine dining → restaurant → cafe → pub → bakery → fast food). Food-type chips **only from actual hits**. User can jump to Maps or tap a type to refine. Do not invent a type with no nearby hit.
+
+`GET /api/suggest?kind=&lat=&lng=&type=` (trial session). Phone CSP stays Cloud Run + Wikipedia. Hold auto-lore ~45s after a suggestion so the card is not immediately overwritten. Do not log suggestions as heard tales.

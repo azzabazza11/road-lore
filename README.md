@@ -34,6 +34,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - **Spoken-clip cache** — Cloud Run reuses a clip when the same story text and voice are requested again (GCS; off until `GCS_BUCKET` is set)
 - **Shared nearby stories** — travellers can replay AI-narrated clips left near a place (skips Gemini lore + TTS when a match exists)
 - **Clip map (admin)** — OpenStreetMap view of indexed story locations (`admin-map.html`)
+- **Suggestions** — one-shot nearby dining, parks, restrooms, sightseeing, entertainment, and events (OSM). Up to three Maps hops. Not a story filter.
 - **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
 - **Log** — last five stories, replay or hear more
 - Screen wake lock while travelling (optional)
@@ -62,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.9.7**
+Version: **1.10.0**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -86,6 +87,8 @@ Story order on the phone:
 - **AI stories:** shared nearby → grounded AI lore
 
 **Admin clip map (Phase 3).** Open **`/admin-map.html`** on Cloud Run (or Pages — it calls Cloud Run). Pins every indexed story location on OpenStreetMap. The pin list is metadata only; **Play** on a card fetches that clip from storage (`GET /api/clip?key=`) and plays it — no new Gemini call. Access with a session, or set env `MAP_TOKEN` and open `admin-map.html?token=…`.
+
+**Suggestions (1.10.0).** Home-screen chips are one-shot local searches (dining, parks, restrooms, sightseeing, entertainment, events) — not story interests. Cloud Run proxies OSM Overpass at `GET /api/suggest`. The card lists up to three places with Google Maps directions hops. Dining starts as a mix of what was found; type chips appear only when that food type actually hit. Auto-lore waits ~45 seconds so the card is not overwritten.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
 
