@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.1" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.2" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -233,6 +233,58 @@
       color: var(--ink);
       border-color: var(--accent);
     }
+    .suggest-results {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .suggest-results[hidden] { display: none; }
+    .suggest-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+    .suggest-result {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 8px 8px 8px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+    }
+    .suggest-result-text {
+      flex: 1;
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .suggest-result-text strong {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .suggest-result-dist {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    a.maps-icon {
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a.maps-icon:active { transform: scale(0.96); }
     .meta-row {
       display: flex;
       flex-wrap: wrap;
@@ -676,6 +728,7 @@
       <h2>Suggestions</h2>
       <p class="hint" style="margin-top:0">Tap once to find real nearby places — not stories, and not a saved filter.</p>
       <div class="chips" id="suggestChips" role="group" aria-label="Place suggestions"></div>
+      <div class="suggest-results" id="suggestResults" hidden></div>
     </div>
 
     <div id="installBanner" hidden>
@@ -834,7 +887,7 @@
 
   <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.10.1';
+    const APP_VERSION = '1.10.2';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1265,6 +1318,60 @@
       if (SUGGEST.mapsDirUrl) return SUGGEST.mapsDirUrl(lat, lng);
       const dest = Number(lat).toFixed(6) + ',' + Number(lng).toFixed(6);
       return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(dest);
+    }
+
+    function mapsPlaceHref(lat, lng, name) {
+      if (SUGGEST.mapsPlaceUrl) return SUGGEST.mapsPlaceUrl(lat, lng, name);
+      const pin = Number(lat).toFixed(6) + ',' + Number(lng).toFixed(6);
+      const label = String(name || '').trim();
+      const q = label ? (label + ' ' + pin) : pin;
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+    }
+
+    function mapsIconSvg() {
+      return '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>';
+    }
+
+    function renderSuggestResults(card) {
+      const el = $('suggestResults');
+      if (!el) return;
+      el.replaceChildren();
+      if (!card || !card.suggestion) {
+        el.hidden = true;
+        return;
+      }
+      const places = Array.isArray(card.maps) ? card.maps : [];
+      if (!places.length) {
+        const empty = document.createElement('p');
+        empty.className = 'suggest-empty';
+        empty.textContent = card.extract || 'No places found nearby.';
+        el.append(empty);
+        el.hidden = false;
+        return;
+      }
+      places.forEach(p => {
+        if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
+        const row = document.createElement('div');
+        row.className = 'suggest-result';
+        const text = document.createElement('div');
+        text.className = 'suggest-result-text';
+        const name = document.createElement('strong');
+        name.textContent = p.name || 'Place';
+        const dist = document.createElement('span');
+        dist.className = 'suggest-result-dist';
+        dist.textContent = formatPlaceDist(p.dist);
+        text.append(name, dist);
+        const a = document.createElement('a');
+        a.className = 'maps-icon';
+        a.href = p.mapsPlaceUrl || mapsPlaceHref(p.lat, p.lng, p.name);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.setAttribute('aria-label', 'Open ' + (p.name || 'place') + ' in Google Maps');
+        a.innerHTML = mapsIconSvg();
+        row.append(text, a);
+        el.append(row);
+      });
+      el.hidden = !el.firstChild;
     }
 
     function formatPlaceDist(m) {
@@ -2435,6 +2542,7 @@
     function presentSuggestion(card, { speakIt = true } = {}) {
       suggestionHoldUntil = Date.now() + SUGGESTION_HOLD_MS;
       showHero(card, card.eyebrow || 'Nearby places');
+      renderSuggestResults(card);
       if (speakIt && state.settings.auto) speakSuggestion(card);
     }
 
@@ -2848,6 +2956,11 @@
       stopSpeech();
       setSuggestBusy(true);
       $('eyebrow').textContent = type ? 'Refining…' : ('Looking for ' + spec.label.toLowerCase() + '…');
+      renderSuggestResults({
+        suggestion: true,
+        maps: [],
+        extract: type ? 'Refining…' : ('Looking for ' + spec.label.toLowerCase() + '…')
+      });
       setGps('Searching nearby places…', 'warn');
       try {
         if (!state.trialToken) await refreshTrial();
@@ -2879,6 +2992,13 @@
           : 'The place search did not finish. That is a connection problem, not an empty area.';
         renderHeroMaps({ suggestion: true, maps: [] });
         renderDiningTypes({ suggestion: true, suggestKind: spec.id, diningTypes: [] });
+        renderSuggestResults({
+          suggestion: true,
+          maps: [],
+          extract: noGps
+            ? 'Need a GPS fix first — start a trip or allow location.'
+            : 'The place search did not finish. That is a connection problem, not an empty area.'
+        });
         setGps(noGps ? 'Need GPS first…' : 'Place search failed', 'bad');
       } finally {
         setSuggestBusy(false);

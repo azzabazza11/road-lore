@@ -125,6 +125,13 @@
     return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(dest);
   }
 
+  function mapsPlaceUrl(lat, lng, name) {
+    const pin = coord(lat) + ',' + coord(lng);
+    const label = String(name || '').trim();
+    const q = label ? (label + ' ' + pin) : pin;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  }
+
   function formatDistance(m) {
     if (!Number.isFinite(m)) return '';
     if (m < 1000) return Math.round(m) + ' m';
@@ -213,7 +220,8 @@
         lng: xy.lng,
         dist,
         type,
-        mapsUrl: mapsDirUrl(xy.lat, xy.lng)
+        mapsUrl: mapsDirUrl(xy.lat, xy.lng),
+        mapsPlaceUrl: mapsPlaceUrl(xy.lat, xy.lng, name)
       });
     }
     return out;
@@ -404,6 +412,7 @@
     diningTypeLabel,
     haversineM,
     mapsDirUrl,
+    mapsPlaceUrl,
     formatDistance,
     speakDistance,
     elementCoords,

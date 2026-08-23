@@ -11,6 +11,10 @@ const agents = fs.readFileSync(path.join(__dirname, '../AGENTS.md'), 'utf8');
 describe('suggestion + Maps wiring', () => {
   it('exposes one-shot home chips, not Settings interest filters', () => {
     assert.match(html, /id="suggestChips"/);
+    assert.match(html, /id="suggestResults"/);
+    assert.match(html, /function renderSuggestResults/);
+    assert.match(html, /maps-icon/);
+    assert.match(html, /maps\/search\/\?api=1/);
     assert.match(html, /id="heroMaps"/);
     assert.match(html, /id="heroDiningTypes"/);
     assert.match(html, /suggestions\.js/);
