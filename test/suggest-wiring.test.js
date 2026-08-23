@@ -14,6 +14,11 @@ describe('suggestion + Maps wiring', () => {
     assert.match(html, /id="suggestResults"/);
     assert.match(html, /function renderSuggestResults/);
     assert.match(html, /maps-icon/);
+    assert.match(html, /suggest-thumb/);
+    assert.match(html, /hydrateSuggestThumbs/);
+    assert.match(html, /upload\.wikimedia\.org/);
+    assert.match(html, /www\.wikidata\.org/);
+    assert.match(html, /commons\.wikimedia\.org/);
     assert.match(html, /maps\/search\/\?api=1/);
     assert.match(html, /id="heroMaps"/);
     assert.match(html, /id="heroDiningTypes"/);

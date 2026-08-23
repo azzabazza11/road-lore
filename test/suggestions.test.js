@@ -10,6 +10,11 @@ const {
   classifyDining,
   isFineDining,
   parsePlaces,
+  mediaHints,
+  parseWikipediaTitle,
+  parseWikidataId,
+  parseCommonsFile,
+  resolvePlaceThumbs,
   diningTypesPresent,
   mixDining,
   pickMapsChoices,
@@ -65,6 +70,52 @@ describe('maps + distance', () => {
     assert.equal(speakDistance(420), '420 metres');
     assert.equal(speakDistance(1240), '1.2 kilometres');
     assert.equal(speakDistance(12000), '12 kilometres');
+  });
+});
+
+describe('suggestion thumbs', () => {
+  it('reads Wikipedia, Wikidata, and Commons tags and ignores random image hosts', () => {
+    assert.equal(parseWikipediaTitle({ wikipedia: 'en:Sky_Tower' }), 'Sky Tower');
+    assert.equal(parseWikidataId({ wikidata: 'Q172771' }), 'Q172771');
+    assert.equal(parseCommonsFile({ wikimedia_commons: 'File:Sky Tower 2015.jpg' }), 'Sky Tower 2015.jpg');
+    assert.equal(parseCommonsFile({ image: 'https://evil.example/x.jpg' }), '');
+    const hints = mediaHints({
+      wikipedia: 'en:Albert Park, Auckland',
+      image: 'https://upload.wikimedia.org/wikipedia/commons/a/a1/Albert_Park.jpg'
+    });
+    assert.equal(hints.wikipedia, 'Albert Park, Auckland');
+    assert.match(hints.thumb, /upload\.wikimedia\.org/);
+  });
+
+  it('resolves a Wikimedia thumb from a Wikipedia title', async () => {
+    const fetchImpl = async (url) => {
+      const u = String(url);
+      assert.match(u, /en\.wikipedia\.org/);
+      return {
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: {
+              1: {
+                title: 'Sky Tower',
+                thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/s/sky.jpg/160px-sky.jpg' }
+              }
+            }
+          }
+        })
+      };
+    };
+    const out = await resolvePlaceThumbs([
+      { name: 'Sky Tower', wikipedia: 'Sky Tower' }
+    ], { fetchImpl });
+    assert.match(out[0].thumb, /upload\.wikimedia\.org/);
+  });
+
+  it('does not invent a thumb when there is no linked media', async () => {
+    const out = await resolvePlaceThumbs([{ name: 'Hell Pizza' }], {
+      fetchImpl: async () => { throw new Error('should not fetch'); }
+    });
+    assert.equal(out[0].thumb, undefined);
   });
 });
 

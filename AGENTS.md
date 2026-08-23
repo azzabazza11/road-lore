@@ -59,3 +59,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 **Shipped 1.10.1:** phone Overpass fallback so Suggestions work before Cloud Run is redeployed. Cloud Run is still 1.7.0 until `GCP_SA_KEY` is set and the deploy Action runs.
 
 **Shipped 1.10.2:** Suggestions panel lists the found places. Each row has a Maps icon that opens `https://www.google.com/maps/search/?api=1&query=` with the place name and coordinates (pin loaded, not only a directions hop).
+
+**Shipped 1.10.3:** Optional thumbs on suggestion rows from Wikipedia / Wikidata / Commons tags only (`upload.wikimedia.org`). Do not invent images for places with no linked media.
