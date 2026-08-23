@@ -18,6 +18,8 @@
     { id: 'entertainment', label: 'Entertainment', radiusM: 15000 },
     { id: 'events', label: 'Events', radiusM: 20000 },
     { id: 'dining', label: 'Dining', radiusM: 15000 },
+    { id: 'camping', label: 'Camping', radiusM: 25000 },
+    { id: 'accommodation', label: 'Accommodation', radiusM: 15000 },
     { id: 'sightseeing', label: 'Sightseeing', radiusM: 15000 },
     { id: 'parks', label: 'Parks / reserves', radiusM: 15000 },
     { id: 'restroom', label: 'Restroom', radiusM: 10000 }
@@ -65,6 +67,22 @@
       ['amenity', 'pub'],
       ['amenity', 'bar'],
       ['shop', 'bakery']
+    ],
+    camping: [
+      ['tourism', 'camp_site'],
+      ['tourism', 'caravan_site'],
+      ['tourism', 'camp_pitch']
+    ],
+    accommodation: [
+      ['tourism', 'hotel'],
+      ['tourism', 'motel'],
+      ['tourism', 'guest_house'],
+      ['tourism', 'hostel'],
+      ['tourism', 'apartment'],
+      ['tourism', 'chalet'],
+      ['tourism', 'alpine_hut'],
+      ['tourism', 'wilderness_hut'],
+      ['tourism', 'bed_and_breakfast']
     ],
     sightseeing: [
       ['tourism', 'attraction'],
@@ -189,7 +207,67 @@
   }
 
   function requiresName(kind) {
-    return kind === 'dining' || kind === 'entertainment' || kind === 'sightseeing' || kind === 'events';
+    return kind === 'dining' || kind === 'entertainment' || kind === 'sightseeing' ||
+      kind === 'events' || kind === 'camping' || kind === 'accommodation';
+  }
+
+  function matchesKind(kind, tags) {
+    const pairs = KIND_TAGS[kind] || [];
+    if (!pairs.length) return false;
+    const t = tags || {};
+    return pairs.some(([key, value]) => {
+      const have = String(t[key] || '');
+      if (!have) return false;
+      return value === '*' || have === value;
+    });
+  }
+
+  function parseWebsite(tags) {
+    const raw = String((tags && (tags.website || tags['contact:website'] || tags.url)) || '').trim();
+    if (!raw || /^javascript:/i.test(raw)) return '';
+    let href = raw;
+    if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
+    try {
+      const u = new URL(href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+      if (!u.hostname || u.hostname === 'localhost') return '';
+      return u.toString();
+    } catch {
+      return '';
+    }
+  }
+
+  function websiteLabel(href) {
+    try {
+      return new URL(href).hostname.replace(/^www\./, '');
+    } catch {
+      return '';
+    }
+  }
+
+  function parsePhone(tags) {
+    const raw = String((tags && (tags.phone || tags['contact:phone'] || tags.telephone || tags['contact:mobile'])) || '').trim();
+    if (!raw) return '';
+    const digits = raw.replace(/[^\d+]/g, '');
+    if (digits.replace(/\D/g, '').length < 6) return '';
+    return raw;
+  }
+
+  function phoneHref(phone) {
+    const digits = String(phone || '').replace(/[^\d+]/g, '');
+    if (digits.replace(/\D/g, '').length < 6) return '';
+    return 'tel:' + digits;
+  }
+
+  function contactDetails(tags) {
+    const website = parseWebsite(tags);
+    const phone = parsePhone(tags);
+    return {
+      website,
+      websiteLabel: website ? websiteLabel(website) : '',
+      phone,
+      phoneHref: phoneHref(phone)
+    };
   }
 
   function parseWikipediaTitle(tags) {
@@ -434,6 +512,7 @@
     const seen = new Set();
     for (const el of Array.isArray(elements) ? elements : []) {
       const tags = el && el.tags ? el.tags : {};
+      if (!kindId || !matchesKind(kindId, tags)) continue;
       const xy = elementCoords(el);
       if (!xy) continue;
       const rawName = String(tags.name || tags['name:en'] || '').trim();
@@ -450,6 +529,7 @@
       if (seen.has(key)) continue;
       seen.add(key);
       const media = mediaHints(tags);
+      const contact = contactDetails(tags);
       out.push({
         name,
         lat: xy.lat,
@@ -458,6 +538,10 @@
         type,
         mapsUrl: mapsDirUrl(xy.lat, xy.lng),
         mapsPlaceUrl: mapsPlaceUrl(xy.lat, xy.lng, name),
+        website: contact.website,
+        websiteLabel: contact.websiteLabel,
+        phone: contact.phone,
+        phoneHref: contact.phoneHref,
         wikipedia: media.wikipedia,
         wikidata: media.wikidata,
         commons: media.commons,
@@ -547,7 +631,7 @@
     const spec = typeof kind === 'string' ? getKind(kind) : kind;
     if (!spec) return '';
     const tags = KIND_TAGS[spec.id] || [];
-    const radiusM = Math.max(200, Math.min(20000, Math.round(spec.radiusM)));
+    const radiusM = Math.max(200, Math.min(25000, Math.round(spec.radiusM)));
     const la = coord(lat);
     const ln = coord(lng);
     const parts = [];
@@ -653,11 +737,17 @@
     haversineM,
     mapsDirUrl,
     mapsPlaceUrl,
+    parseWebsite,
+    websiteLabel,
+    parsePhone,
+    phoneHref,
+    contactDetails,
     formatDistance,
     speakDistance,
     elementCoords,
     isFineDining,
     classifyDining,
+    matchesKind,
     parseWikipediaTitle,
     parseWikidataId,
     parseCommonsFile,

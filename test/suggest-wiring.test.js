@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+const suggestionsSrc = fs.readFileSync(path.join(__dirname, '../suggestions.js'), 'utf8');
 const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 const sw = fs.readFileSync(path.join(__dirname, '../service-worker.js'), 'utf8');
 const agents = fs.readFileSync(path.join(__dirname, '../AGENTS.md'), 'utf8');
@@ -14,6 +15,15 @@ describe('suggestion + Maps wiring', () => {
     assert.match(html, /id="suggestResults"/);
     assert.match(html, /function renderSuggestResults/);
     assert.match(html, /maps-icon/);
+    assert.match(html, /web-icon/);
+    assert.match(html, /phone-icon/);
+    assert.match(html, /function suggestActionLink/);
+    assert.match(html, /href\.indexOf\('tel:'\)/);
+    assert.match(suggestionsSrc, /id: 'camping'/);
+    assert.match(suggestionsSrc, /label: 'Camping'/);
+    assert.match(suggestionsSrc, /id: 'accommodation'/);
+    assert.match(suggestionsSrc, /label: 'Accommodation'/);
+    assert.match(html, /SUGGEST_KINDS\.map/);
     assert.match(html, /suggest-thumb/);
     assert.match(html, /hydrateSuggestThumbs/);
     assert.match(html, /upload\.wikimedia\.org/);

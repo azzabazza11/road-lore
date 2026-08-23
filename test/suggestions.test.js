@@ -10,6 +10,10 @@ const {
   classifyDining,
   isFineDining,
   parsePlaces,
+  parseWebsite,
+  parsePhone,
+  phoneHref,
+  contactDetails,
   mediaHints,
   parseWikipediaTitle,
   parseWikidataId,
@@ -38,9 +42,10 @@ function way(id, lat, lng, tags) {
 }
 
 describe('kinds', () => {
-  it('lists the six one-shot suggestion kinds', () => {
+  it('lists the one-shot suggestion kinds including stay', () => {
     assert.deepEqual(KIND_IDS, [
-      'entertainment', 'events', 'dining', 'sightseeing', 'parks', 'restroom'
+      'entertainment', 'events', 'dining', 'camping', 'accommodation',
+      'sightseeing', 'parks', 'restroom'
     ]);
     assert.ok(getKind('Dining'));
     assert.equal(getKind('history'), null);
@@ -70,6 +75,39 @@ describe('maps + distance', () => {
     assert.equal(speakDistance(420), '420 metres');
     assert.equal(speakDistance(1240), '1.2 kilometres');
     assert.equal(speakDistance(12000), '12 kilometres');
+  });
+});
+
+describe('stay contact', () => {
+  it('builds website and tel links and skips junk', () => {
+    const ok = contactDetails({
+      website: 'top10.co.nz',
+      phone: '+64 9 123 4567'
+    });
+    assert.equal(ok.website, 'https://top10.co.nz/');
+    assert.equal(ok.websiteLabel, 'top10.co.nz');
+    assert.equal(ok.phone, '+64 9 123 4567');
+    assert.equal(ok.phoneHref, 'tel:+6491234567');
+    assert.equal(parseWebsite({ website: 'javascript:alert(1)' }), '');
+    assert.equal(parsePhone({ phone: '123' }), '');
+    assert.equal(phoneHref(''), '');
+  });
+
+  it('parses named camp sites and hotels from Overpass tags', () => {
+    const elements = [
+      node(1, -36.85, 174.76, { tourism: 'camp_site', name: 'Orewa TOP 10', website: 'https://www.top10.co.nz/orewa', phone: '+64 9 426 5270' }),
+      node(2, -36.851, 174.761, { tourism: 'camp_site' }),
+      node(3, -36.852, 174.762, { tourism: 'hotel', name: 'The Grand', 'contact:website': 'https://grand.example', 'contact:phone': '09 555 0101' })
+    ];
+    const camps = parsePlaces(elements, ORIGIN, 'camping');
+    assert.equal(camps.length, 1);
+    assert.equal(camps[0].name, 'Orewa TOP 10');
+    assert.equal(camps[0].websiteLabel, 'top10.co.nz');
+    assert.match(camps[0].phoneHref, /^tel:/);
+    const stays = parsePlaces(elements, ORIGIN, 'accommodation');
+    assert.equal(stays.length, 1);
+    assert.equal(stays[0].name, 'The Grand');
+    assert.equal(stays[0].websiteLabel, 'grand.example');
   });
 });
 
@@ -269,6 +307,12 @@ describe('Overpass query + runSuggest', () => {
     const q = buildOverpassQuery('dining', -36.8485, 174.7633);
     assert.match(q, /amenity=restaurant/);
     assert.match(q, /amenity=cafe/);
+    const camp = buildOverpassQuery('camping', -36.8485, 174.7633);
+    assert.match(camp, /tourism=camp_site/);
+    assert.match(camp, /around:25000/);
+    const stay = buildOverpassQuery('accommodation', -36.8485, 174.7633);
+    assert.match(stay, /tourism=hotel/);
+    assert.match(stay, /around:15000/);
     assert.match(q, /-36\.848500,174\.763300/);
     assert.doesNotMatch(q, /history/);
   });
