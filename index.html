@@ -11,8 +11,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.2" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://en.wikipedia.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.10.3" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://upload.wikimedia.org; connect-src 'self' https://en.wikipedia.org https://commons.wikimedia.org https://www.wikidata.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
@@ -271,6 +271,21 @@
       color: var(--muted);
       font-size: 0.8rem;
       font-weight: 600;
+    }
+    .suggest-thumb {
+      flex: 0 0 52px;
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--panel) 80%, var(--line));
+    }
+    .suggest-thumb.empty { display: none; }
+    .suggest-thumb img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     a.maps-icon {
       flex: 0 0 44px;
@@ -887,7 +902,7 @@
 
   <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.10.2';
+    const APP_VERSION = '1.10.3';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1353,6 +1368,13 @@
         if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
         const row = document.createElement('div');
         row.className = 'suggest-result';
+        const thumb = document.createElement('div');
+        thumb.className = 'suggest-thumb' + (p.thumb || p.wikipedia || p.wikidata || p.commons ? '' : ' empty');
+        const img = document.createElement('img');
+        img.alt = '';
+        if (p.thumb) img.src = p.thumb;
+        else img.hidden = true;
+        thumb.append(img);
         const text = document.createElement('div');
         text.className = 'suggest-result-text';
         const name = document.createElement('strong');
@@ -1368,10 +1390,33 @@
         a.rel = 'noopener noreferrer';
         a.setAttribute('aria-label', 'Open ' + (p.name || 'place') + ' in Google Maps');
         a.innerHTML = mapsIconSvg();
-        row.append(text, a);
+        row.append(thumb, text, a);
         el.append(row);
       });
       el.hidden = !el.firstChild;
+      hydrateSuggestThumbs(places);
+    }
+
+    let suggestThumbGen = 0;
+    async function hydrateSuggestThumbs(places) {
+      const gen = ++suggestThumbGen;
+      if (!SUGGEST.resolvePlaceThumbs || !places || !places.length) return;
+      let updated = places;
+      try {
+        updated = await SUGGEST.resolvePlaceThumbs(places);
+      } catch { return; }
+      if (gen !== suggestThumbGen) return;
+      const rows = $('suggestResults') ? $('suggestResults').querySelectorAll('.suggest-result') : [];
+      updated.forEach((p, i) => {
+        const row = rows[i];
+        if (!row || !p || !p.thumb) return;
+        const box = row.querySelector('.suggest-thumb');
+        const img = box && box.querySelector('img');
+        if (!img || !box) return;
+        img.src = p.thumb;
+        img.hidden = false;
+        box.classList.remove('empty');
+      });
     }
 
     function formatPlaceDist(m) {

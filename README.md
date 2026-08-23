@@ -63,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.10.2**
+Version: **1.10.3**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -93,6 +93,8 @@ Story order on the phone:
 **1.10.1.** If Cloud Run is still an older revision (`/api/suggest` 404), the phone searches OpenStreetMap itself. An empty rural result is “nothing nearby,” not “place search failed.”
 
 **1.10.2.** The Suggestions panel keeps the results (name + distance). A Maps pin icon opens Google Maps with that place loaded.
+
+**1.10.3.** Suggestion rows show a thumbnail when OpenStreetMap links the place to Wikipedia, Wikidata, or Wikimedia Commons. No stock photos.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
 

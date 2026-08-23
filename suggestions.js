@@ -192,6 +192,241 @@
     return kind === 'dining' || kind === 'entertainment' || kind === 'sightseeing' || kind === 'events';
   }
 
+  function parseWikipediaTitle(tags) {
+    const raw = String((tags && (tags.wikipedia || tags['wikipedia:en'])) || '').trim();
+    if (!raw) return '';
+    const colon = raw.indexOf(':');
+    if (colon > 0 && /^[a-z]{2,3}$/i.test(raw.slice(0, colon))) {
+      if (raw.slice(0, colon).toLowerCase() !== 'en') return '';
+      return raw.slice(colon + 1).replace(/_/g, ' ').trim();
+    }
+    return raw.replace(/_/g, ' ').trim();
+  }
+
+  function parseWikidataId(tags) {
+    const id = String((tags && tags.wikidata) || '').trim();
+    return /^Q\d+$/i.test(id) ? ('Q' + id.slice(1)) : '';
+  }
+
+  function parseCommonsFile(tags) {
+    const raw = String((tags && (tags.wikimedia_commons || tags.image)) || '').trim();
+    if (!raw || /^Category:/i.test(raw)) return '';
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const u = new URL(raw);
+        if (u.hostname === 'upload.wikimedia.org' && u.protocol === 'https:') return raw;
+        if (u.hostname === 'commons.wikimedia.org') {
+          const m = decodeURIComponent(u.pathname).match(/\/wiki\/(?:File:)?(.+)$/i);
+          if (m && m[1] && !/^Category:/i.test(m[1])) return m[1].replace(/_/g, ' ');
+        }
+      } catch { /* ignore */ }
+      return '';
+    }
+    return raw.replace(/^File:/i, '').trim();
+  }
+
+  function mediaHints(tags) {
+    const wikipedia = parseWikipediaTitle(tags);
+    const wikidata = parseWikidataId(tags);
+    const commons = parseCommonsFile(tags);
+    const thumb = /^https:\/\/upload\.wikimedia\.org\//i.test(commons) ? commons : '';
+    return {
+      wikipedia,
+      wikidata,
+      commons: thumb ? '' : commons,
+      thumb
+    };
+  }
+
+  function isWikimediaThumb(url) {
+    try {
+      const u = new URL(String(url || ''));
+      return u.protocol === 'https:' && u.hostname === 'upload.wikimedia.org';
+    } catch {
+      return false;
+    }
+  }
+
+  const MEDIA_HEADERS = {
+    'User-Agent': 'PassengerTales/1.10 (+https://azzabazza11.github.io/road-lore/)'
+  };
+
+  async function fetchJson(fetchFn, url) {
+    const res = await fetchFn(url, { headers: MEDIA_HEADERS });
+    if (!res || !res.ok) return null;
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function wikiSummaries(titles, fetchFn) {
+    const thumbs = new Map();
+    const seen = new Set();
+    for (const title of titles || []) {
+      const t = String(title || '').trim();
+      if (!t || seen.has(t.toLowerCase())) continue;
+      seen.add(t.toLowerCase());
+      const url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(t.replace(/ /g, '_'));
+      const data = await fetchJson(fetchFn, url);
+      if (data && data.type !== 'disambiguation' && data.thumbnail && isWikimediaThumb(data.thumbnail.source)) {
+        thumbs.set(t, data.thumbnail.source);
+      }
+    }
+    return thumbs;
+  }
+
+  async function wikiPageimages(titles, fetchFn, size) {
+    const unique = [];
+    const seen = new Set();
+    for (const title of titles || []) {
+      const t = String(title || '').trim();
+      if (!t || seen.has(t.toLowerCase())) continue;
+      seen.add(t.toLowerCase());
+      unique.push(t);
+    }
+    const thumbs = new Map();
+    if (!unique.length) return thumbs;
+    const u = new URL('https://en.wikipedia.org/w/api.php');
+    u.searchParams.set('action', 'query');
+    u.searchParams.set('prop', 'pageimages');
+    u.searchParams.set('piprop', 'thumbnail');
+    u.searchParams.set('pithumbsize', String(size || 160));
+    u.searchParams.set('titles', unique.join('|'));
+    u.searchParams.set('format', 'json');
+    u.searchParams.set('origin', '*');
+    const data = await fetchJson(fetchFn, u.toString());
+    const pages = (data && data.query && data.query.pages) || {};
+    const byTitle = new Map();
+    for (const page of Object.values(pages)) {
+      if (page && page.title && page.thumbnail && isWikimediaThumb(page.thumbnail.source)) {
+        byTitle.set(page.title, page.thumbnail.source);
+      }
+    }
+    for (const n of (data && data.query && data.query.normalized) || []) {
+      if (n && n.from && n.to && byTitle.has(n.to)) byTitle.set(n.from, byTitle.get(n.to));
+    }
+    unique.forEach(title => {
+      if (byTitle.has(title)) thumbs.set(title, byTitle.get(title));
+      else {
+        const hit = [...byTitle.keys()].find(k => k.toLowerCase() === title.toLowerCase());
+        if (hit) thumbs.set(title, byTitle.get(hit));
+      }
+    });
+    return thumbs;
+  }
+
+  async function commonsThumbs(files, fetchFn, size) {
+    const unique = [];
+    const seen = new Set();
+    for (const file of files || []) {
+      const f = String(file || '').replace(/^File:/i, '').trim();
+      if (!f || seen.has(f.toLowerCase())) continue;
+      seen.add(f.toLowerCase());
+      unique.push(f);
+    }
+    const thumbs = new Map();
+    if (!unique.length) return thumbs;
+    const u = new URL('https://commons.wikimedia.org/w/api.php');
+    u.searchParams.set('action', 'query');
+    u.searchParams.set('prop', 'imageinfo');
+    u.searchParams.set('iiprop', 'url');
+    u.searchParams.set('iiurlwidth', String(size || 160));
+    u.searchParams.set('titles', unique.map(f => 'File:' + f).join('|'));
+    u.searchParams.set('format', 'json');
+    u.searchParams.set('origin', '*');
+    const data = await fetchJson(fetchFn, u.toString());
+    for (const page of Object.values((data && data.query && data.query.pages) || {})) {
+      const info = page && page.imageinfo && page.imageinfo[0];
+      const src = (info && (info.thumburl || info.url)) || '';
+      if (!isWikimediaThumb(src)) continue;
+      const title = String(page.title || '').replace(/^File:/i, '');
+      thumbs.set(title, src);
+      unique.forEach(f => {
+        if (f.toLowerCase() === title.toLowerCase()) thumbs.set(f, src);
+      });
+    }
+    return thumbs;
+  }
+
+  async function wikidataHints(ids, fetchFn) {
+    const unique = [];
+    const seen = new Set();
+    for (const id of ids || []) {
+      const q = parseWikidataId({ wikidata: id });
+      if (!q || seen.has(q)) continue;
+      seen.add(q);
+      unique.push(q);
+    }
+    const out = new Map();
+    if (!unique.length) return out;
+    const u = new URL('https://www.wikidata.org/w/api.php');
+    u.searchParams.set('action', 'wbgetentities');
+    u.searchParams.set('ids', unique.join('|'));
+    u.searchParams.set('props', 'claims|sitelinks');
+    u.searchParams.set('format', 'json');
+    u.searchParams.set('origin', '*');
+    const data = await fetchJson(fetchFn, u.toString());
+    const entities = (data && data.entities) || {};
+    for (const id of unique) {
+      const ent = entities[id];
+      if (!ent) continue;
+      const p18 = ent.claims && ent.claims.P18 && ent.claims.P18[0];
+      const commons = p18 && p18.mainsnak && p18.mainsnak.datavalue && p18.mainsnak.datavalue.value
+        ? String(p18.mainsnak.datavalue.value)
+        : '';
+      const wikipedia = ent.sitelinks && ent.sitelinks.enwiki && ent.sitelinks.enwiki.title
+        ? String(ent.sitelinks.enwiki.title)
+        : '';
+      out.set(id, { commons, wikipedia });
+    }
+    return out;
+  }
+
+  async function resolvePlaceThumbs(places, { fetchImpl, thumbSize } = {}) {
+    const fetchFn = fetchImpl || fetch;
+    const size = thumbSize || 160;
+    const list = (places || []).map(p => Object.assign({}, p));
+    const wikiTitles = [];
+    const commonsFiles = [];
+    const wikiIds = [];
+    list.forEach(p => {
+      if (p.thumb && isWikimediaThumb(p.thumb)) return;
+      if (p.wikipedia) wikiTitles.push(p.wikipedia);
+      if (p.commons) commonsFiles.push(p.commons);
+      if (p.wikidata) wikiIds.push(p.wikidata);
+    });
+    const wd = await wikidataHints(wikiIds, fetchFn);
+    wd.forEach(hint => {
+      if (hint.wikipedia) wikiTitles.push(hint.wikipedia);
+      if (hint.commons) commonsFiles.push(hint.commons);
+    });
+    const [wikiThumbs, fileThumbs] = await Promise.all([
+      wikiPageimages(wikiTitles, fetchFn, size),
+      commonsThumbs(commonsFiles, fetchFn, size)
+    ]);
+    const missingWiki = wikiTitles.filter(t => !wikiThumbs.has(t));
+    if (missingWiki.length) {
+      const extra = await wikiSummaries(missingWiki, fetchFn);
+      extra.forEach((src, title) => wikiThumbs.set(title, src));
+    }
+    list.forEach(p => {
+      if (p.thumb && isWikimediaThumb(p.thumb)) return;
+      const wdHint = p.wikidata ? wd.get(p.wikidata) : null;
+      const commonsName = p.commons || (wdHint && wdHint.commons) || '';
+      const wikiTitle = p.wikipedia || (wdHint && wdHint.wikipedia) || '';
+      if (commonsName && fileThumbs.get(commonsName)) {
+        p.thumb = fileThumbs.get(commonsName);
+        return;
+      }
+      if (wikiTitle && wikiThumbs.get(wikiTitle)) {
+        p.thumb = wikiThumbs.get(wikiTitle);
+      }
+    });
+    return list;
+  }
+
   function parsePlaces(elements, origin, kind) {
     const spec = typeof kind === 'string' ? getKind(kind) : kind;
     const kindId = spec && spec.id;
@@ -214,6 +449,7 @@
       const key = name.toLowerCase() + '|' + xy.lat.toFixed(4) + '|' + xy.lng.toFixed(4);
       if (seen.has(key)) continue;
       seen.add(key);
+      const media = mediaHints(tags);
       out.push({
         name,
         lat: xy.lat,
@@ -221,7 +457,11 @@
         dist,
         type,
         mapsUrl: mapsDirUrl(xy.lat, xy.lng),
-        mapsPlaceUrl: mapsPlaceUrl(xy.lat, xy.lng, name)
+        mapsPlaceUrl: mapsPlaceUrl(xy.lat, xy.lng, name),
+        wikipedia: media.wikipedia,
+        wikidata: media.wikidata,
+        commons: media.commons,
+        thumb: media.thumb
       });
     }
     return out;
@@ -418,6 +658,12 @@
     elementCoords,
     isFineDining,
     classifyDining,
+    parseWikipediaTitle,
+    parseWikidataId,
+    parseCommonsFile,
+    mediaHints,
+    isWikimediaThumb,
+    resolvePlaceThumbs,
     parsePlaces,
     diningTypesPresent,
     mixDining,
