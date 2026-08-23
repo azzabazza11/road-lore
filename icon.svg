@@ -1,24 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Passenger Tales">
-  <!-- dark card background -->
-  <rect width="512" height="512" rx="112" fill="#12161c"/>
-  <!-- glowing road ribbon - perspective stripe narrowing toward top -->
-  <path d="M128 440 Q160 300 220 220 Q256 172 256 140" fill="none" stroke="#c9953d" stroke-width="36" stroke-linecap="round"/>
-  <path d="M384 440 Q352 300 292 220 Q256 172 256 140" fill="none" stroke="#c9953d" stroke-width="36" stroke-linecap="round"/>
-  <!-- road centre dashes -->
-  <line x1="256" y1="400" x2="256" y2="358" stroke="#f0d898" stroke-width="14" stroke-linecap="round"/>
-  <line x1="256" y1="330" x2="256" y2="294" stroke="#f0d898" stroke-width="14" stroke-linecap="round"/>
-  <line x1="256" y1="270" x2="256" y2="240" stroke="#f0d898" stroke-width="10" stroke-linecap="round" opacity=".7"/>
-  <!-- voice / story waves emanating from horizon point -->
-  <path d="M256 140 Q286 118 308 95" fill="none" stroke="#7fd6d1" stroke-width="12" stroke-linecap="round" opacity=".95"/>
-  <path d="M256 140 Q276 110 290 82" fill="none" stroke="#7fd6d1" stroke-width="8" stroke-linecap="round" opacity=".7"/>
-  <path d="M256 140 Q226 118 204 95" fill="none" stroke="#7fd6d1" stroke-width="12" stroke-linecap="round" opacity=".95"/>
-  <path d="M256 140 Q236 110 222 82" fill="none" stroke="#7fd6d1" stroke-width="8" stroke-linecap="round" opacity=".7"/>
-  <!-- warm glow at horizon -->
-  <circle cx="256" cy="140" r="20" fill="#d4863c" opacity=".85"/>
-  <circle cx="256" cy="140" r="10" fill="#f7d898"/>
-  <!-- star hints -->
-  <circle cx="130" cy="88" r="5" fill="#f0d898" opacity=".7"/>
-  <circle cx="380" cy="72" r="4" fill="#f0d898" opacity=".55"/>
-  <circle cx="340" cy="100" r="3" fill="#f0d898" opacity=".45"/>
-  <circle cx="170" cy="105" r="3" fill="#f0d898" opacity=".45"/>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1140"/>
+      <stop offset="0.42" stop-color="#7a2a7c"/>
+      <stop offset="0.68" stop-color="#e35a6a"/>
+      <stop offset="1" stop-color="#f2a23a"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffb43a"/>
+      <stop offset="1" stop-color="#ffe27a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <circle cx="256" cy="248" r="58" fill="#ffe9a0"/>
+  <circle cx="256" cy="248" r="34" fill="#fff6d0"/>
+  <path d="M70 512 C150 390 200 320 256 268 C312 320 362 390 442 512 Z" fill="url(#road)"/>
+  <path d="M248 500 V300" stroke="#fff6d0" stroke-width="14" stroke-linecap="round" stroke-dasharray="28 22"/>
+  <path d="M256 168 C276 148 292 128 304 108" fill="none" stroke="#5ee8e0" stroke-width="14" stroke-linecap="round"/>
+  <path d="M256 168 C236 148 220 128 208 108" fill="none" stroke="#5ee8e0" stroke-width="14" stroke-linecap="round"/>
+  <path d="M256 168 C268 142 278 118 286 96" fill="none" stroke="#7fd6d1" stroke-width="8" stroke-linecap="round" opacity=".75"/>
+  <path d="M256 168 C244 142 234 118 226 96" fill="none" stroke="#7fd6d1" stroke-width="8" stroke-linecap="round" opacity=".75"/>
+  <rect x="168" y="128" width="12" height="36" rx="6" fill="#5ee8e0"/>
+  <rect x="188" y="112" width="12" height="52" rx="6" fill="#7ff0ea"/>
+  <rect x="208" y="98" width="12" height="66" rx="6" fill="#b8fff8"/>
+  <rect x="228" y="86" width="12" height="78" rx="6" fill="#e8fffc"/>
+  <rect x="248" y="78" width="16" height="86" rx="7" fill="#ffffff"/>
+  <rect x="272" y="86" width="12" height="78" rx="6" fill="#e8fffc"/>
+  <rect x="292" y="98" width="12" height="66" rx="6" fill="#b8fff8"/>
+  <rect x="312" y="112" width="12" height="52" rx="6" fill="#7ff0ea"/>
+  <rect x="332" y="128" width="12" height="36" rx="6" fill="#5ee8e0"/>
 </svg>
