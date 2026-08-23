@@ -46,7 +46,9 @@ When `/api/tts` receives `lat`, `lng`, and optional `title`, the clip is registe
 
 Suggestions are **not stories**. They find **real-world, confirmed local places** (OSM via Overpass on Cloud Run). Buttons are **single-use, not toggles** — not on the story-interest chip row, not persisted as Settings filters. A tap **fires immediately** and is **prioritized** over the tale pipeline; control returns to idle after the search.
 
-Kinds (separate space): Entertainment, Events, Dining, Sightseeing, Parks / reserves, Restroom.
+Kinds (separate space): Entertainment, Events, Dining, Camping, Accommodation, Sightseeing, Parks / reserves, Restroom.
+
+Result rows show website and phone when OSM has them. Tap launches Maps, the website, or `tel:`. Do not invent a site or number.
 
 **Nearest first**, more than one result. Card Maps section: **up to three** choices (label + distance), each `https://www.google.com/maps/dir/?api=1&destination=lat,lng`. Passenger hop-out, not in-app nav.
 
@@ -61,3 +63,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 **Shipped 1.10.2:** Suggestions panel lists the found places. Each row has a Maps icon that opens `https://www.google.com/maps/search/?api=1&query=` with the place name and coordinates (pin loaded, not only a directions hop).
 
 **Shipped 1.10.3:** Optional thumbs on suggestion rows from Wikipedia / Wikidata / Commons tags only (`upload.wikimedia.org`). Do not invent images for places with no linked media.
+
+**Shipped 1.11.0:** Camping and Accommodation chips. Result cards show contact when tagged and launch Maps / website / phone on tap.
