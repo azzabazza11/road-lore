@@ -247,10 +247,34 @@
     }
   }
 
+  const MEDIA_HEADERS = {
+    'User-Agent': 'PassengerTales/1.10 (+https://azzabazza11.github.io/road-lore/)'
+  };
+
   async function fetchJson(fetchFn, url) {
-    const res = await fetchFn(url);
+    const res = await fetchFn(url, { headers: MEDIA_HEADERS });
     if (!res || !res.ok) return null;
-    return res.json();
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function wikiSummaries(titles, fetchFn) {
+    const thumbs = new Map();
+    const seen = new Set();
+    for (const title of titles || []) {
+      const t = String(title || '').trim();
+      if (!t || seen.has(t.toLowerCase())) continue;
+      seen.add(t.toLowerCase());
+      const url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(t.replace(/ /g, '_'));
+      const data = await fetchJson(fetchFn, url);
+      if (data && data.type !== 'disambiguation' && data.thumbnail && isWikimediaThumb(data.thumbnail.source)) {
+        thumbs.set(t, data.thumbnail.source);
+      }
+    }
+    return thumbs;
   }
 
   async function wikiPageimages(titles, fetchFn, size) {
@@ -382,6 +406,11 @@
       wikiPageimages(wikiTitles, fetchFn, size),
       commonsThumbs(commonsFiles, fetchFn, size)
     ]);
+    const missingWiki = wikiTitles.filter(t => !wikiThumbs.has(t));
+    if (missingWiki.length) {
+      const extra = await wikiSummaries(missingWiki, fetchFn);
+      extra.forEach((src, title) => wikiThumbs.set(title, src));
+    }
     list.forEach(p => {
       if (p.thumb && isWikimediaThumb(p.thumb)) return;
       const wdHint = p.wikidata ? wd.get(p.wikidata) : null;

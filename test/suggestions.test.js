@@ -87,6 +87,29 @@ describe('suggestion thumbs', () => {
     assert.match(hints.thumb, /upload\.wikimedia\.org/);
   });
 
+  it('falls back to the Wikipedia summary card when pageimages is empty', async () => {
+    const fetchImpl = async (url) => {
+      const u = String(url);
+      if (u.includes('rest_v1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            type: 'standard',
+            thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Park.jpg/160px-Park.jpg' }
+          })
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ query: { pages: { 1: { title: 'Albert Park, Auckland' } } } })
+      };
+    };
+    const out = await resolvePlaceThumbs([
+      { name: 'Albert Park', wikipedia: 'Albert Park, Auckland' }
+    ], { fetchImpl });
+    assert.match(out[0].thumb, /Albert_Park|Park\.jpg/);
+  });
+
   it('resolves a Wikimedia thumb from a Wikipedia title', async () => {
     const fetchImpl = async (url) => {
       const u = String(url);
