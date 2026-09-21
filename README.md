@@ -36,7 +36,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - **Clip map (admin)** — OpenStreetMap view of indexed story locations (`admin-map.html`)
 - **Suggestions** — one-shot nearby dining, camping, accommodation, parks, restrooms, sightseeing, entertainment, and events (OSM). Maps / website / phone launch when tagged. Not a story filter.
 - **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
-- **Log** — last five stories, replay or hear more
+- **Log** — last ten stories, replay or hear more
 - Screen wake lock while travelling (optional)
 - Light / dark / auto (follows day and night from GPS)
 - Installed app asks before updating when a newer version is on the server
@@ -63,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.11.0**
+Version: **1.11.1**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -100,7 +100,9 @@ Story order on the phone:
 
 **1.11.0.** Camping and Accommodation chips. Result cards show website and phone from OSM and launch Maps, the site, or a call on tap.
 
-The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB (last five clips) is unchanged.
+**1.11.1.** The phone keeps the last ten story cards, and the last ten spoken clips, for replay.
+
+The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB keeps the last ten clips.
 
 If `GCS_BUCKET` is unset, behaviour is the old always-call-Gemini path and `/api/nearby` returns `{ clips: [], index: "off" }`.
 

@@ -65,3 +65,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 **Shipped 1.10.3:** Optional thumbs on suggestion rows from Wikipedia / Wikidata / Commons tags only (`upload.wikimedia.org`). Do not invent images for places with no linked media.
 
 **Shipped 1.11.0:** Camping and Accommodation chips. Result cards show contact when tagged and launch Maps / website / phone on tap.
+
+**Shipped 1.11.1:** The phone keeps the last ten story cards and the last ten spoken clips for replay.
