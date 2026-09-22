@@ -38,4 +38,12 @@ describe('admin map plays stored clips', () => {
     assert.equal(links && links.length, 2);
     assert.match(map, /Stored stories/);
   });
+
+  it('replaces an expired week-long session instead of asking for a map token', () => {
+    assert.doesNotMatch(map, /MAP_TOKEN/);
+    assert.match(map, /trialActive === false/);
+    assert.match(map, /return loadClips\(true\)/);
+    assert.match(map, /function storedTrialUsable/);
+    assert.match(map, /Couldn’t load stored stories/);
+  });
 });

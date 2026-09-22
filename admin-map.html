@@ -159,7 +159,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const APP_VERSION = '1.12.0';
+    const APP_VERSION = '1.12.1';
     const API_ORIGIN = (function () {
       const h = location.hostname;
       if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
@@ -168,18 +168,51 @@
       return '';
     })();
     const TRIAL_KEY = 'passenger-tales-trial';
+    let sessionToken = '';
 
     function apiUrl(path) {
       return (API_ORIGIN || '') + path;
     }
 
-    function trialToken() {
+    function readStoredTrial() {
       try {
         const raw = localStorage.getItem(TRIAL_KEY);
-        if (!raw) return '';
+        if (!raw) return null;
         const o = JSON.parse(raw);
-        return (o && o.token) || '';
-      } catch { return ''; }
+        if (!o || !o.token) return null;
+        return o;
+      } catch { return null; }
+    }
+
+    function storedTrialUsable() {
+      const o = readStoredTrial();
+      if (!o || !o.token) return false;
+      const ends = Number(o.trialEnds);
+      if (ends === 0) return true;
+      return Number.isFinite(ends) && ends > Date.now();
+    }
+
+    function trialToken() {
+      if (sessionToken) return sessionToken;
+      const o = readStoredTrial();
+      return (o && o.token) || '';
+    }
+
+    function rememberSession(data) {
+      if (!data || !data.token) return;
+      sessionToken = data.token;
+      try {
+        localStorage.setItem(TRIAL_KEY, JSON.stringify({
+          token: data.token,
+          deviceId: data.deviceId || '',
+          trialEnds: Number(data.trialEnds) || 0
+        }));
+      } catch {}
+    }
+
+    function clearSession() {
+      sessionToken = '';
+      try { localStorage.removeItem(TRIAL_KEY); } catch {}
     }
 
     function mapTokenFromUrl() {
@@ -193,23 +226,28 @@
       el.className = 'status' + (kind ? ' ' + kind : '');
     }
 
-    async function ensureSession() {
-      if (mapTokenFromUrl()) return;
-      let token = trialToken();
+    async function postSession(useStored) {
       const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['x-road-lore-trial'] = token;
+      if (useStored && storedTrialUsable()) {
+        headers['x-road-lore-trial'] = trialToken();
+      }
       const res = await fetch(apiUrl('/api/session'), { method: 'POST', headers, body: '{}' });
       if (!res.ok) throw new Error('session ' + res.status);
       const data = await res.json();
-      if (data.token) {
-        try {
-          localStorage.setItem(TRIAL_KEY, JSON.stringify({
-            token: data.token,
-            deviceId: data.deviceId,
-            trialEnds: data.trialEnds
-          }));
-        } catch {}
-      }
+      // Cloud Run 1.7.0 reuses a week-long token after it has ended, then /api/clips returns 402.
+      if (data && data.trialActive === false) return null;
+      rememberSession(data);
+      return data;
+    }
+
+    async function ensureSession(forceNew) {
+      if (mapTokenFromUrl() && !forceNew) return;
+      if (forceNew) clearSession();
+      const data = await postSession(!forceNew);
+      if (data) return;
+      clearSession();
+      const fresh = await postSession(false);
+      if (!fresh || !fresh.token) throw new Error('session');
     }
 
     function clipHeaders() {
@@ -381,17 +419,21 @@
       }
     }
 
-    async function loadClips() {
+    async function loadClips(retry) {
       setStatus('Fetching clips…');
-      await ensureSession();
+      await ensureSession(!!retry);
       const params = new URLSearchParams({ limit: '500' });
       const tok = mapTokenFromUrl();
-      if (tok) params.set('token', tok);
+      if (tok && !retry) params.set('token', tok);
       const res = await fetch(apiUrl('/api/clips?' + params.toString()), {
         headers: clipHeaders()
       });
+      if ((res.status === 401 || res.status === 402) && !retry) {
+        clearSession();
+        return loadClips(true);
+      }
       if (res.status === 401 || res.status === 402) {
-        setStatus('Need a session or ?token=MAP_TOKEN', 'err');
+        setStatus('Couldn’t load stored stories. Tap Refresh.', 'err');
         return;
       }
       if (!res.ok) {

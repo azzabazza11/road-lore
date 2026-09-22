@@ -71,3 +71,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 **Shipped 1.11.2:** Map pin Play loads the stored GCS clip. While Cloud Run is still 1.7.0 (no `GET /api/clip`), the card falls back to `GET /api/nearby` at the pin and plays the matching `ttsKey`. No Gemini.
 
 **Shipped 1.12.0:** Home and Settings have Open clip map. It launches `admin-map.html` in the browser so stored pin cards can be browsed and played. Share QR stays in Settings.
+
+**Shipped 1.12.1:** The clip map drops an expired week-long session and starts a new one, so `/api/clips` is not stuck on 402. The status line no longer asks for `MAP_TOKEN`.
