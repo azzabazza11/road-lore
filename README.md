@@ -33,7 +33,7 @@ Open **http://localhost:8080/** — GPS needs a **secure context** (`https://` o
 - **Narration** — Gemini voice by default on new installs (or the on-device voice if you choose it)
 - **Spoken-clip cache** — Cloud Run reuses a clip when the same story text and voice are requested again (GCS; off until `GCS_BUCKET` is set)
 - **Shared nearby stories** — travellers can replay AI-narrated clips left near a place (skips Gemini lore + TTS when a match exists)
-- **Clip map (admin)** — OpenStreetMap view of indexed story locations (`admin-map.html`)
+- **Clip map** — Open clip map on the home screen or in Settings. It opens in the browser so you can browse stored pins and play them (`admin-map.html`)
 - **Suggestions** — one-shot nearby dining, camping, accommodation, parks, restrooms, sightseeing, entertainment, and events (OSM). Maps / website / phone launch when tagged. Not a story filter.
 - **Spacing** — Often / Sparse / Sporadic (default 0.5 km)
 - **Log** — last ten stories, replay or hear more
@@ -63,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.11.2**
+Version: **1.12.0**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -103,6 +103,8 @@ Story order on the phone:
 **1.11.1.** The phone keeps the last ten story cards, and the last ten spoken clips, for replay.
 
 **1.11.2.** Map pin cards play the stored clip. If Cloud Run has no `/api/clip` yet, Play loads that same object through the nearby index.
+
+**1.12.0.** Home and Settings open the clip map in the browser so stored stories can be sampled from the pins.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB keeps the last ten clips.
 

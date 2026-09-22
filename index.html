@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.11.2" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.12.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://upload.wikimedia.org; connect-src 'self' https://en.wikipedia.org https://commons.wikimedia.org https://www.wikidata.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -367,6 +367,13 @@
       color: var(--danger-ink);
     }
     .btn:disabled { opacity: 0.4; }
+    a.btn {
+      display: grid;
+      place-items: center;
+      text-align: center;
+      text-decoration: none;
+      color: var(--ink);
+    }
 
     .status {
       display: flex;
@@ -770,6 +777,12 @@
 
     <button class="btn" id="btnInstall" type="button" style="width:100%;margin-bottom:12px">Install on phone</button>
 
+    <div class="panel" id="storedMapPanel">
+      <h2>Stored stories</h2>
+      <p class="hint" style="margin-top:0">Sample tales already saved. Opens the clip map in the browser so you can browse pins and play them.</p>
+      <a class="btn" id="btnStoredMap" href="./admin-map.html" target="_blank" rel="noopener noreferrer" style="width:100%">Open clip map</a>
+    </div>
+
     <div class="panel">
       <h2>Along the way</h2>
       <div class="log" id="heardLog"><div class="empty">Nothing narrated yet.</div></div>
@@ -860,6 +873,7 @@
         <button class="toggle on" id="wakeToggle" type="button" aria-pressed="true"></button>
       </div>
       <p class="hint">Uses Wikipedia near your GPS for short introductions (Wikipedia’s nearby search maxes out at 10 km). Needs network + location. Best on phone with the screen unlocked while driving (passenger mode recommended).</p>
+      <a class="btn" id="btnStoredMapSettings" href="./admin-map.html" target="_blank" rel="noopener noreferrer" style="width:100%;margin-top:8px">Open clip map</a>
       <button class="btn" id="shareBtn" style="width:100%;margin-top:8px">Share QR</button>
       <button class="btn danger" id="btnReset" style="width:100%;margin-top:8px">Forget heard places</button>
     </div>
@@ -919,7 +933,7 @@
 
   <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.11.2';
+    const APP_VERSION = '1.12.0';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
