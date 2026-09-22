@@ -21,6 +21,9 @@ describe('admin map plays stored clips', () => {
     assert.match(map, /\/api\/clip\?/);
     assert.match(map, /function playPcm\(/);
     assert.match(map, /function fetchStoredClip\(/);
+    assert.match(map, /function fetchClipNearPin\(/);
+    assert.match(map, /\/api\/nearby\?/);
+    assert.match(map, /data-lat=/);
     assert.match(map, /createBuffer\(1, samples, 24000\)/);
     assert.doesNotMatch(map, /\/api\/tts/);
     assert.doesNotMatch(map, /generateContent/);

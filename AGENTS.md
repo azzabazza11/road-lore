@@ -67,3 +67,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 **Shipped 1.11.0:** Camping and Accommodation chips. Result cards show contact when tagged and launch Maps / website / phone on tap.
 
 **Shipped 1.11.1:** The phone keeps the last ten story cards and the last ten spoken clips for replay.
+
+**Shipped 1.11.2:** Map pin Play loads the stored GCS clip. While Cloud Run is still 1.7.0 (no `GET /api/clip`), the card falls back to `GET /api/nearby` at the pin and plays the matching `ttsKey`. No Gemini.
