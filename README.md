@@ -63,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.12.0**
+Version: **1.12.1**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -105,6 +105,8 @@ Story order on the phone:
 **1.11.2.** Map pin cards play the stored clip. If Cloud Run has no `/api/clip` yet, Play loads that same object through the nearby index.
 
 **1.12.0.** Home and Settings open the clip map in the browser so stored stories can be sampled from the pins.
+
+**1.12.1.** The clip map starts a fresh session when an older week-long pass has ended, so stored pins load without a map token.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB keeps the last ten clips.
 
