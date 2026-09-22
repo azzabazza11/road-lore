@@ -17,4 +17,14 @@ describe('local story cards', () => {
     assert.match(readme, /last ten stories/);
     assert.match(readme, /last ten clips/);
   });
+
+  it('plays a saved nearby card when start-trip lookup fails or finds nothing new', () => {
+    assert.match(html, /function localSavedStory/);
+    assert.match(html, /function deliverLookup/);
+    assert.match(html, /localSaved: true/);
+    assert.match(html, /GPS live · saved story/);
+    assert.match(html, /recordLog: !saved/);
+    assert.match(html, /allowEmptySaved/);
+    assert.match(html, /Lookup failed · check network/);
+  });
 });
