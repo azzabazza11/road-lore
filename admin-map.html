@@ -159,7 +159,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const APP_VERSION = '1.11.1';
+    const APP_VERSION = '1.11.2';
     const API_ORIGIN = (function () {
       const h = location.hostname;
       if (h === 'azzabazza11.github.io' || /\.github\.io$/.test(h)) {
@@ -320,25 +320,57 @@
       });
     }
 
-    async function fetchStoredClip(ttsKey) {
+    async function fetchClipByKey(ttsKey) {
       const params = new URLSearchParams({ key: ttsKey });
       const tok = mapTokenFromUrl();
       if (tok) params.set('token', tok);
       const res = await fetch(apiUrl('/api/clip?' + params.toString()), {
         headers: clipHeaders()
       });
+      // Cloud Run 1.7.0 has the clip index but no /api/clip route yet.
+      if (res.status === 404) return null;
       if (!res.ok) throw new Error('clip ' + res.status);
-      const data = await res.json();
-      if (!data || !data.audio) throw new Error('no audio');
+      const data = await res.json().catch(() => null);
+      if (!data || !data.audio) return null;
       return data;
     }
 
-    async function playStoredClip(ttsKey, btn, statusEl) {
-      if (!ttsKey || !btn) return;
+    async function fetchClipNearPin(ttsKey, place) {
+      const params = new URLSearchParams({
+        lat: String(place.lat),
+        lng: String(place.lng),
+        radius: '12000',
+        voice: place.voice || 'Kore',
+        limit: '8'
+      });
+      const tok = mapTokenFromUrl();
+      if (tok) params.set('token', tok);
+      const res = await fetch(apiUrl('/api/nearby?' + params.toString()), {
+        headers: clipHeaders()
+      });
+      if (!res.ok) throw new Error('nearby ' + res.status);
+      const data = await res.json().catch(() => null);
+      const clips = data && Array.isArray(data.clips) ? data.clips : [];
+      const hit = clips.find(c => c && c.ttsKey === ttsKey && c.audio);
+      if (!hit) throw new Error('no audio');
+      return hit;
+    }
+
+    async function fetchStoredClip(place) {
+      const ttsKey = place && place.ttsKey;
+      if (!ttsKey) throw new Error('no audio');
+      const direct = await fetchClipByKey(ttsKey);
+      if (direct) return direct;
+      if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) throw new Error('no audio');
+      return fetchClipNearPin(ttsKey, place);
+    }
+
+    async function playStoredClip(place, btn, statusEl) {
+      if (!place || !place.ttsKey || !btn) return;
       btn.disabled = true;
       if (statusEl) statusEl.textContent = 'Loading…';
       try {
-        const clip = await fetchStoredClip(ttsKey);
+        const clip = await fetchStoredClip(place);
         if (statusEl) statusEl.textContent = 'Playing…';
         await playPcm(b64ToBytes(clip.audio));
         if (statusEl) statusEl.textContent = '';
@@ -376,7 +408,9 @@
         if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue;
         const m = L.marker([c.lat, c.lng], { icon });
         const playBtn = c.ttsKey
-          ? '<div class="play-row"><button type="button" data-play="' + escapeHtml(c.ttsKey) + '">Play</button><span class="play-status"></span></div>'
+          ? '<div class="play-row"><button type="button" data-play="' + escapeHtml(c.ttsKey) +
+            '" data-lat="' + escapeHtml(c.lat) + '" data-lng="' + escapeHtml(c.lng) +
+            '" data-voice="' + escapeHtml(c.voice || '') + '">Play</button><span class="play-status"></span></div>'
           : '';
         m.bindPopup(
           '<strong>' + escapeHtml(c.title || 'Untitled') + '</strong>' +
@@ -389,9 +423,14 @@
           const root = ev.popup.getElement();
           const btn = root && root.querySelector('[data-play]');
           if (!btn) return;
-          btn.addEventListener('click', () => {
-            playStoredClip(btn.getAttribute('data-play'), btn, root.querySelector('.play-status'));
-          });
+          btn.onclick = () => {
+            playStoredClip({
+              ttsKey: btn.getAttribute('data-play'),
+              lat: Number(btn.getAttribute('data-lat')),
+              lng: Number(btn.getAttribute('data-lng')),
+              voice: btn.getAttribute('data-voice') || ''
+            }, btn, root.querySelector('.play-status'));
+          };
         });
         m.addTo(layer);
         markers.push(m);
