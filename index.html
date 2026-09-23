@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.12.2" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.12.3" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://upload.wikimedia.org; connect-src 'self' https://en.wikipedia.org https://commons.wikimedia.org https://www.wikidata.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -933,7 +933,7 @@
 
   <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.12.2';
+    const APP_VERSION = '1.12.3';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1991,28 +1991,129 @@
       }
     }
 
+    async function readLocalClip(key) {
+      if (!key) return null;
+      const keys = [key];
+      if (key.indexOf('|main-src|') >= 0) keys.push(key.replace('|main-src|', '|main|'));
+      else if (key.indexOf('|main|') >= 0) keys.push(key.replace('|main|', '|main-src|'));
+      for (const k of keys) {
+        const pcm = await getClip(k);
+        if (pcm) return pcm;
+      }
+      return null;
+    }
+
+    async function fetchApiRetry(url) {
+      let res = await fetch(url, { headers: apiHeaders() });
+      if (res.status === 401 || res.status === 402) {
+        await refreshTrial(true);
+        res = await fetch(url, { headers: apiHeaders() });
+      }
+      return res;
+    }
+
+    async function nearbyClipForTitle(lat, lng, voice, title) {
+      const params = new URLSearchParams({
+        lat: String(lat),
+        lng: String(lng),
+        radius: '12000',
+        voice: voice || 'Kore',
+        limit: '12'
+      });
+      const res = await fetchApiRetry(apiUrl('/api/nearby?' + params.toString()));
+      if (!res.ok) return null;
+      const data = await res.json();
+      const clips = Array.isArray(data.clips) ? data.clips : [];
+      let best = null;
+      const want = normalizeTitle(title);
+      for (const c of clips) {
+        if (!c || !c.audio || !c.title || !titlesSimilar(c.title, title)) continue;
+        best = c;
+        if (normalizeTitle(c.title) === want) break;
+      }
+      return best && best.audio ? b64ToBytes(best.audio) : null;
+    }
+
+    async function clipVoiceForTitle(lat, lng, title) {
+      const res = await fetchApiRetry(apiUrl('/api/clips?limit=500'));
+      if (!res.ok) return '';
+      const data = await res.json();
+      const clips = Array.isArray(data.clips) ? data.clips : [];
+      let bestVoice = '';
+      let bestD = Infinity;
+      for (const c of clips) {
+        if (!c || !c.voice || !c.title || !titlesSimilar(c.title, title)) continue;
+        const clat = Number(c.lat);
+        const clng = Number(c.lng);
+        if (!Number.isFinite(clat) || !Number.isFinite(clng)) continue;
+        const d = haversine({ lat, lng }, { lat: clat, lng: clng });
+        if (d > 15000 || d >= bestD) continue;
+        bestD = d;
+        bestVoice = c.voice;
+      }
+      return bestVoice;
+    }
+
+    async function siteStoredClip(meta, voice) {
+      const lat = Number(meta.lat);
+      const lng = Number(meta.lng);
+      const title = meta.title;
+      if (!title || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      const voices = [];
+      const add = v => {
+        const name = String(v || '').trim();
+        if (name && voices.indexOf(name) < 0) voices.push(name);
+      };
+      add(meta.voice);
+      if (!meta.voice) {
+        try {
+          add(await clipVoiceForTitle(lat, lng, title));
+        } catch { /* catalog is optional */ }
+      }
+      add(voice);
+      add('Kore');
+      for (const v of voices) {
+        try {
+          const pcm = await nearbyClipForTitle(lat, lng, v, title);
+          if (pcm) return pcm;
+        } catch { /* try the next voice */ }
+      }
+      return null;
+    }
+
     async function speakGemini(text, onEnd, gen, cacheKey, meta = {}) {
       speaking = true;
-      setVoiceStatus(meta.pcm ? 'Speaking…' : 'Generating AI voice…');
       $('eyebrow').textContent = 'Now narrating';
       $('placePill').classList.add('talk');
       const voice = meta.voice || resolveGeminiVoice();
       const key = cacheKey || audioKey('adhoc', String(text).slice(0, 40), voice);
       try {
-        let pcm = meta.pcm || await getClip(key);
-        if (gen !== speakGen) return;
-        if (pcm) setVoiceStatus('Speaking…');
+        let pcm = meta.pcm || null;
+        let storedLabel = pcm ? 'Stored clip' : '';
         if (!pcm) {
+          pcm = await readLocalClip(key);
+          if (pcm) storedLabel = 'Saved voice';
+        }
+        if (gen !== speakGen) return;
+        if (!pcm && meta.preferStored) {
+          setVoiceStatus('Stored clip');
+          pcm = await siteStoredClip(meta, voice);
+          if (pcm) storedLabel = 'Stored clip';
+        }
+        if (gen !== speakGen) return;
+        if (!pcm) {
+          setVoiceStatus('Generating AI voice…');
           pcm = await ttsViaProxy(text, voice, meta);
           if (gen !== speakGen) return;
-          if (pcm) await putClip(key, pcm);
+          storedLabel = '';
         }
+        if (pcm && storedLabel !== 'Saved voice') await putClip(key, pcm);
         if (!pcm) {
           setVoiceStatus('Using device voice');
           speakDevice(text, onEnd, gen);
           return;
         }
-        setVoiceStatus('Speaking…');
+        setVoiceStatus(storedLabel || 'Speaking…');
         await playPcm(pcm);
         if (gen !== speakGen) return;
         speaking = false;
@@ -2659,17 +2760,18 @@
       return story.title + '. ' + body;
     }
 
-    function speakStory(story, extraOnly, credit) {
+    function speakStory(story, extraOnly, credit, opts) {
       const note = extraOnly || story.continuation ? '' : String(credit || '');
       const kind = extraOnly ? 'more' : note ? 'main-src' : 'main';
-      const voice = resolveGeminiVoice();
+      const voice = story.voice || resolveGeminiVoice();
       const spoken = note ? storyLine(story, extraOnly) + ' ' + note : storyLine(story, extraOnly);
       const meta = {
         lat: story.lat,
         lng: story.lng,
         title: story.title,
         voice,
-        pcm: extraOnly || note ? null : story.sharedPcm
+        pcm: extraOnly || note ? null : story.sharedPcm,
+        preferStored: !extraOnly && !!(opts && opts.preferStored)
       };
       speak(spoken, null, audioKey(story.pageid, kind, voice), meta);
     }
@@ -2689,6 +2791,7 @@
 
     function presentStory(story, { speakIt = true, recordLog = true } = {}) {
       showHero(story, speakIt ? '' : 'Paused on');
+      if (!story.voice) story.voice = resolveGeminiVoice();
 
       if (recordLog) {
         rememberHeard(story);
@@ -2708,7 +2811,8 @@
           ai: !!story.ai,
           sources: Array.isArray(story.sources) ? story.sources.slice(0, 3) : [],
           lat: story.lat,
-          lng: story.lng
+          lng: story.lng,
+          voice: story.voice || ''
         });
         if (state.log.length > LOG_KEEP) state.log.length = LOG_KEEP;
         saveState();
@@ -2721,7 +2825,7 @@
 
       if (speakIt && state.settings.auto) {
         const credit = story.continuation ? '' : maybeSourceCredit(story);
-        speakStory(story, null, credit);
+        speakStory(story, null, credit, { preferStored: !!story.localSaved });
       }
     }
 
@@ -2735,7 +2839,8 @@
         ai: !!item.ai,
         sources: item.sources || [],
         lat: item.lat,
-        lng: item.lng
+        lng: item.lng,
+        voice: item.voice || ''
       };
     }
 
@@ -3448,7 +3553,7 @@
         speakSuggestion(currentStory);
         return;
       }
-      speakStory(currentStory);
+      speakStory(currentStory, null, '', { preferStored: true });
     });
 
     async function requestMore(story) {
@@ -3731,7 +3836,7 @@
         if (!item) return;
         const story = logItemToStory(item);
         showHero(story, 'Replay');
-        speakStory(story);
+        speakStory(story, null, '', { preferStored: true });
         return;
       }
       if (more) {

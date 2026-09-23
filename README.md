@@ -63,7 +63,7 @@ Samsung Internet may still warn that the WebAPK targets an older Android API. Th
 3. Share → **Add to Home Screen** → Add
 4. Open **Passenger Tales** from the home screen
 
-Version: **1.12.2**
+Version: **1.12.3**
 
 The apps hub tile on https://azzabazza11.github.io/apps/ (repo [`azzabazza11.github.io`](https://github.com/azzabazza11/azzabazza11.github.io)) still uses id `road-lore` until updated. Run `python3 scripts/sync-hub-road-lore.py` on version jumps.
 
@@ -109,6 +109,8 @@ Story order on the phone:
 **1.12.1.** The clip map starts a fresh session when an older week-long pass has ended, so stored pins load without a map token.
 
 **1.12.2.** Start trip plays a saved nearby card when the lookup cannot reach the network, or when nothing new is available at the same place. The home place search is named Local finds. A failed find puts the previous story back and lets the trip continue. A successful find still holds the tale pipeline for about 45 seconds.
+
+**1.12.3.** Replay on a stored card plays the saved voice from the phone, or the clip already stored for that place, before it asks for a new AI voice.
 
 The bucket is private. The browser still receives `{ audio, mimeType }` as today; a `cache` field (`hit` / `miss` / `off` / `error`) and header `X-TTS-Cache` are extra. Phone IndexedDB keeps the last ten clips.
 

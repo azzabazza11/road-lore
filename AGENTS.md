@@ -75,3 +75,5 @@ Lore / Wikipedia cards still get a **single** Maps hop when they have a place.
 **Shipped 1.12.1:** The clip map drops an expired week-long session and starts a new one, so `/api/clips` is not stuck on 402. The status line no longer asks for `MAP_TOKEN`.
 
 **Shipped 1.12.2:** The home heading for this search is **Local finds**. The API stays `GET /api/suggest`. A failed find restores the story card and resumes the trip lookup; a successful find still holds auto-lore for ~45s. Start trip plays the nearest saved card in range when the network lookup fails, or when the first lookup of a trip has nothing new.
+
+**Shipped 1.12.3:** Replay on a stored card plays the phone’s saved voice, or the site clip for that title and place (`GET /api/nearby`), before generating a new AI voice. The voice line says Saved voice or Stored clip while that audio plays.

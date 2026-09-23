@@ -27,4 +27,19 @@ describe('local story cards', () => {
     assert.match(html, /allowEmptySaved/);
     assert.match(html, /Lookup failed · check network/);
   });
+
+  it('replays a stored card from saved audio before generating a new voice', () => {
+    const speakAt = html.indexOf('async function speakGemini');
+    const generateAt = html.indexOf("setVoiceStatus('Generating AI voice…')", speakAt);
+    const localAt = html.indexOf('readLocalClip(key)', speakAt);
+    const siteAt = html.indexOf('siteStoredClip(meta, voice)', speakAt);
+    assert.ok(localAt > speakAt && localAt < generateAt);
+    assert.ok(siteAt > localAt && siteAt < generateAt);
+    assert.match(html, /Saved voice/);
+    assert.match(html, /Stored clip/);
+    assert.match(html, /preferStored: true/);
+    assert.match(html, /radius: '12000'/);
+    assert.match(html, /voice: story\.voice \|\| ''/);
+    assert.match(html, /function nearbyClipForTitle/);
+  });
 });
