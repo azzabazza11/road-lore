@@ -71,4 +71,13 @@ describe('suggestion + Maps wiring', () => {
     assert.match(html, /overpass\.kumi\.systems/);
     assert.match(html, /connection problem, not an empty area/);
   });
+
+  it('names the home search Local finds and restores the story if that search fails', () => {
+    assert.match(html, /<h2>Local finds<\/h2>/);
+    assert.match(html, /aria-label="Local finds"/);
+    assert.match(html, /const previous = currentStory && currentStory\.title \? currentStory : null/);
+    assert.match(html, /showHero\(previous,/);
+    assert.match(html, /Date\.now\(\) >= suggestionHoldUntil/);
+    assert.doesNotMatch(html, /<h2>Suggestions<\/h2>/);
+  });
 });

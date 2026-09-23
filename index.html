@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Passenger Tales" />
   <meta name="format-detection" content="telephone=no" />
-  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.12.1" />
+  <meta name="description" content="Travel companion that narrates local history, geology, and interesting places as you drive. v1.12.2" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://upload.wikimedia.org; connect-src 'self' https://en.wikipedia.org https://commons.wikimedia.org https://www.wikidata.org https://road-lore-528520900686.australia-southeast1.run.app https://overpass-api.de https://overpass.kumi.systems; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="manifest" href="./manifest.json" />
@@ -764,9 +764,9 @@
     </div>
 
     <div class="panel" id="suggestPanel">
-      <h2>Suggestions</h2>
+      <h2>Local finds</h2>
       <p class="hint" style="margin-top:0">Tap once to find real nearby places — not stories, and not a saved filter.</p>
-      <div class="chips" id="suggestChips" role="group" aria-label="Place suggestions"></div>
+      <div class="chips" id="suggestChips" role="group" aria-label="Local finds"></div>
       <div class="suggest-results" id="suggestResults" hidden></div>
     </div>
 
@@ -933,7 +933,7 @@
 
   <script src="suggestions.js"></script>
   <script>
-    const APP_VERSION = '1.12.1';
+    const APP_VERSION = '1.12.2';
     const LIVE_ORIGIN = 'https://azzabazza11.github.io/road-lore';
     const API_ORIGIN = (function () {
       const h = location.hostname;
@@ -1290,21 +1290,37 @@
       return headers;
     }
 
-    async function refreshTrial() {
+    async function postSession(sendToken) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (sendToken && state.trialToken) headers['x-road-lore-trial'] = state.trialToken;
+      const res = await fetch(apiUrl('/api/session'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ deviceId: ensureDeviceId() })
+      });
+      if (!res.ok) throw new Error('session ' + res.status);
+      return res.json();
+    }
+
+    async function refreshTrial(forceNew) {
       try {
-        const res = await fetch(apiUrl('/api/session'), {
-          method: 'POST',
-          headers: apiHeaders(),
-          body: JSON.stringify({ deviceId: ensureDeviceId() })
-        });
-        if (!res.ok) throw new Error('session');
-        const data = await res.json();
-        if (data.token) state.trialToken = data.token;
-        if (data.deviceId && !state.deviceId) state.deviceId = data.deviceId;
-        state.trialEnds = 0;
-        state.trialActive = true;
-        backendOk = true;
-        saveState();
+        if (forceNew) state.trialToken = '';
+        let data = await postSession(!forceNew && !!state.trialToken);
+        // Cloud Run 1.7.0 reuses an ended week-long pass. Drop it and mint a new one.
+        if (!data || data.trialActive === false || !data.token) {
+          state.trialToken = '';
+          data = await postSession(false);
+        }
+        if (data && data.token && data.trialActive !== false) {
+          state.trialToken = data.token;
+          if (data.deviceId && !state.deviceId) state.deviceId = data.deviceId;
+          state.trialEnds = Number(data.trialEnds) || 0;
+          state.trialActive = true;
+          backendOk = true;
+          saveState();
+        } else {
+          backendOk = false;
+        }
       } catch {
         backendOk = false;
       }
@@ -2224,13 +2240,15 @@
       if (state.settings.noRepeat !== false) {
         for (const t of recentTitles(AVOID_LIMIT)) params.append('avoid', t);
       }
-      const res = await fetch(apiUrl('/api/nearby?' + params.toString()), {
+      const loadNearby = () => fetch(apiUrl('/api/nearby?' + params.toString()), {
         headers: apiHeaders()
       });
-      if (res.status === 401) {
-        refreshTrial();
-        return null;
+      let res = await loadNearby();
+      if (res.status === 401 || res.status === 402) {
+        await refreshTrial(true);
+        res = await loadNearby();
       }
+      if (res.status === 401 || res.status === 402) throw new Error('nearby ' + res.status);
       if (!res.ok) return null;
       const data = await res.json();
       const clips = Array.isArray(data.clips) ? data.clips : [];
@@ -2276,14 +2294,15 @@
       const avoid = state.settings.noRepeat !== false ? recentTitles(AVOID_LIMIT) : [];
       const body = { lat, lng, ...loreRequestFields() };
       if (avoid.length) body.avoid = avoid;
-      const res = await fetch(apiUrl('/api/lore'), {
+      const postLore = () => fetch(apiUrl('/api/lore'), {
         method: 'POST',
         headers: apiHeaders(),
         body: JSON.stringify(body)
       });
-      if (res.status === 401) {
-        refreshTrial();
-        throw new Error('session');
+      let res = await postLore();
+      if (res.status === 401 || res.status === 402) {
+        await refreshTrial(true);
+        res = await postLore();
       }
       if (!res.ok) throw new Error('lore ' + res.status);
       const data = await res.json();
@@ -2373,51 +2392,50 @@
     async function getStory(lat, lng, kmh) {
       const src = state.settings.loreSource || 'auto';
       const allowAi = trialIsActive();
+      let failed = false;
+
+      async function guard(fn) {
+        try {
+          return await fn();
+        } catch {
+          failed = true;
+          return null;
+        }
+      }
 
       async function aiStory() {
-        try {
-          const shared = await findStoryNearby(lat, lng);
-          if (shared) return shared;
-        } catch { /* fall through to AI lore */ }
-        return await findStoryAI(lat, lng);
+        const shared = await guard(() => findStoryNearby(lat, lng));
+        if (shared) return shared;
+        return guard(() => findStoryAI(lat, lng));
       }
 
-      if (src === 'ai') {
-        if (allowAi) {
-          const story = await aiStory();
-          if (story) return story;
-        }
-        const wiki = await findStory(lat, lng, kmh);
-        if (wiki) return wiki;
-        return await findStoryContinuation(lat, lng);
-      }
-
-      if (src === 'wikipedia' || !allowAi) {
-        const wiki = await findStory(lat, lng, kmh);
-        if (wiki) return wiki;
-        return await findStoryContinuation(lat, lng);
-      }
-
-      // Auto: new Wikipedia, then new shared clips, then new AI, then a continuation.
       let story = null;
-      try {
-        story = await findStory(lat, lng, kmh);
-      } catch { /* fall through */ }
-      if (story) return story;
-      if (allowAi) {
-        try {
-          story = await findStoryNearby(lat, lng);
-        } catch { /* fall through */ }
-        if (story) return story;
-        try {
-          story = await findStoryAI(lat, lng);
-        } catch { /* fall through */ }
-        if (story && !story.continuation) return story;
+      if (src === 'ai') {
+        if (allowAi) story = await aiStory();
+        if (!story) story = await guard(() => findStory(lat, lng, kmh));
+        if (!story) story = await guard(() => findStoryContinuation(lat, lng));
+      } else if (src === 'wikipedia' || !allowAi) {
+        story = await guard(() => findStory(lat, lng, kmh));
+        if (!story) story = await guard(() => findStoryContinuation(lat, lng));
+      } else {
+        // Auto: new Wikipedia, then new shared clips, then new AI, then a continuation.
+        story = await guard(() => findStory(lat, lng, kmh));
+        if (!story && allowAi) {
+          story = await guard(() => findStoryNearby(lat, lng));
+          if (!story) {
+            const ai = await guard(() => findStoryAI(lat, lng));
+            if (ai && !ai.continuation) story = ai;
+            else {
+              const more = await guard(() => findStoryContinuation(lat, lng));
+              story = more || (ai && ai.continuation ? ai : null);
+            }
+          }
+        } else if (!story) {
+          story = await guard(() => findStoryContinuation(lat, lng));
+        }
       }
-      const more = await findStoryContinuation(lat, lng);
-      if (more) return more;
-      if (story && story.continuation) return story;
-      return null;
+      if (!story && failed) throw new Error('lookup');
+      return story;
     }
 
     function parseSourceUrl(uri) {
@@ -3076,6 +3094,7 @@
       if (suggestBusy || introPlaying) return;
       const spec = SUGGEST_KINDS.find(k => k.id === kind);
       if (!spec) return;
+      const previous = currentStory && currentStory.title ? currentStory : null;
       stopSpeech();
       setSuggestBusy(true);
       $('eyebrow').textContent = type ? 'Refining…' : ('Looking for ' + spec.label.toLowerCase() + '…');
@@ -3108,23 +3127,27 @@
         setGps(card.maps.length ? 'GPS live' : 'GPS live · nothing nearby', 'on');
       } catch (err) {
         const noGps = !lastPos;
-        $('eyebrow').textContent = noGps ? 'Need a location' : 'Couldn’t search just now';
-        $('topic').textContent = spec.label;
-        $('excerpt').textContent = noGps
+        const note = noGps
           ? 'Need a GPS fix first — start a trip or allow location.'
           : 'The place search did not finish. That is a connection problem, not an empty area.';
-        renderHeroMaps({ suggestion: true, maps: [] });
-        renderDiningTypes({ suggestion: true, suggestKind: spec.id, diningTypes: [] });
-        renderSuggestResults({
-          suggestion: true,
-          maps: [],
-          extract: noGps
-            ? 'Need a GPS fix first — start a trip or allow location.'
-            : 'The place search did not finish. That is a connection problem, not an empty area.'
-        });
-        setGps(noGps ? 'Need GPS first…' : 'Place search failed', 'bad');
+        renderSuggestResults({ suggestion: true, maps: [], extract: note });
+        if (previous && previous.title) {
+          showHero(previous, previous.suggestion ? (previous.eyebrow || 'Nearby places') : 'Paused on');
+          if (noGps) setGps('Need GPS first…', 'warn');
+          else setGps(tripOn ? 'GPS live' : 'GPS idle', tripOn ? 'on' : '');
+        } else {
+          $('eyebrow').textContent = noGps ? 'Need a location' : 'Couldn’t search just now';
+          $('topic').textContent = spec.label;
+          $('excerpt').textContent = note;
+          renderHeroMaps({ suggestion: true, maps: [] });
+          renderDiningTypes({ suggestion: true, suggestKind: spec.id, diningTypes: [] });
+          setGps(noGps ? 'Need GPS first…' : 'Place search failed', noGps ? 'warn' : 'bad');
+        }
       } finally {
         setSuggestBusy(false);
+        if (tripOn && lastPos && Date.now() >= suggestionHoldUntil) {
+          maybeLookup(lastPos, lastPos.kmh || 0);
+        }
       }
     }
 
@@ -3205,6 +3228,47 @@
       return haversine(lastStoryAtPos, pos) >= gap;
     }
 
+    function localSavedStory(lat, lng) {
+      const radiusM = Math.min(10000, (Number(state.settings.radiusKm) || 10) * 1000);
+      let best = null;
+      let bestD = Infinity;
+      for (const item of state.log || []) {
+        if (!item || !item.title || !item.extract) continue;
+        const ilat = Number(item.lat);
+        const ilng = Number(item.lng);
+        if (!Number.isFinite(ilat) || !Number.isFinite(ilng)) continue;
+        const d = haversine({ lat, lng }, { lat: ilat, lng: ilng });
+        if (d > radiusM || d >= bestD) continue;
+        bestD = d;
+        best = item;
+      }
+      if (!best) return null;
+      if (currentStory && !currentStory.suggestion && String(currentStory.pageid) === String(best.pageid)) return null;
+      return Object.assign(logItemToStory(best), { dist: bestD, localSaved: true });
+    }
+
+    async function deliverLookup(lat, lng, kmh, opts) {
+      const allowEmptySaved = !!(opts && opts.allowEmptySaved);
+      let networkFailed = false;
+      let story = null;
+      try {
+        story = await getStory(lat, lng, kmh);
+      } catch {
+        networkFailed = true;
+      }
+      if (!story && (networkFailed || allowEmptySaved)) {
+        story = localSavedStory(lat, lng);
+      }
+      if (story) {
+        lastStoryAtPos = { lat, lng };
+        const saved = !!story.localSaved;
+        presentStory(story, { speakIt: true, recordLog: !saved });
+        setGps(saved ? 'GPS live · saved story' : 'GPS live', 'on');
+        return;
+      }
+      setGps(networkFailed ? 'Lookup failed · check network' : 'GPS live · no new lore', networkFailed ? 'bad' : 'on');
+    }
+
     async function maybeLookup(pos, kmh) {
       if (!tripOn || lookupBusy || speaking || introPlaying || suggestBusy) return;
       if (Date.now() < suggestionHoldUntil) return;
@@ -3216,20 +3280,12 @@
       // can inflate trip distance, so don't use tripMeters for this gate.
       if (kmh < 3 && lastStoryAtPos) return;
 
+      const allowEmptySaved = !lastStoryAtPos || kmh < 3;
       lastLookupAt = now;
       lookupBusy = true;
       setGps('Looking up lore…', 'warn');
       try {
-        const story = await getStory(pos.lat, pos.lng, kmh);
-        if (story) {
-          lastStoryAtPos = { lat: pos.lat, lng: pos.lng };
-          presentStory(story, { speakIt: true });
-          setGps('GPS live', 'on');
-        } else {
-          setGps('GPS live · no new lore', 'on');
-        }
-      } catch (err) {
-        setGps('Lookup failed · check network', 'bad');
+        await deliverLookup(pos.lat, pos.lng, kmh, { allowEmptySaved });
       } finally {
         lookupBusy = false;
       }
@@ -3313,21 +3369,14 @@
       watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, geoOpts);
     }
 
-    async function lookupNearby(reason) {
+    async function lookupNearby(reason, opts) {
       if (!lastPos || lookupBusy) return;
       lookupBusy = true;
       setGps(reason || 'Looking up lore…', 'warn');
       try {
-        const story = await getStory(lastPos.lat, lastPos.lng, lastPos.kmh || 0);
-        if (story) {
-          lastStoryAtPos = { lat: lastPos.lat, lng: lastPos.lng };
-          presentStory(story, { speakIt: true });
-          setGps('GPS live', 'on');
-        } else {
-          setGps('GPS live · no new lore', 'on');
-        }
-      } catch {
-        setGps('Lookup failed · check network', 'bad');
+        await deliverLookup(lastPos.lat, lastPos.lng, lastPos.kmh || 0, {
+          allowEmptySaved: !!(opts && opts.allowEmptySaved)
+        });
       } finally {
         lookupBusy = false;
       }
@@ -3342,7 +3391,7 @@
         'A passenger companion drawing on local history and the open web. Generated voice; names may be mis-said, and a detail may occasionally be imperfect.';
       speak(INTRO_SPEECH, () => {
         introPlaying = false;
-        lookupNearby('Looking up lore…');
+        lookupNearby('Looking up lore…', { allowEmptySaved: true });
       }, audioKey('intro', 'disclaimer', voice), { voice });
     }
 
