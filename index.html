@@ -1991,16 +1991,31 @@
       }
     }
 
-    async function readLocalClip(key) {
-      if (!key) return null;
-      const keys = [key];
-      if (key.indexOf('|main-src|') >= 0) keys.push(key.replace('|main-src|', '|main|'));
-      else if (key.indexOf('|main|') >= 0) keys.push(key.replace('|main|', '|main-src|'));
+    async function readLocalClip(key, pageid) {
+      const keys = [];
+      if (key) keys.push(key);
+      if (key && key.indexOf('|main-src|') >= 0) keys.push(key.replace('|main-src|', '|main|'));
+      else if (key && key.indexOf('|main|') >= 0) keys.push(key.replace('|main|', '|main-src|'));
       for (const k of keys) {
         const pcm = await getClip(k);
         if (pcm) return pcm;
       }
-      return null;
+      if (!pageid) return null;
+      try {
+        const db = await openAudioDb();
+        const all = await new Promise((resolve, reject) => {
+          const tx = db.transaction(AUDIO_STORE, 'readonly');
+          const req = tx.objectStore(AUDIO_STORE).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+        const prefix = String(pageid) + '|';
+        const hits = all.filter(row => row && row.pcm && String(row.key || '').indexOf(prefix) === 0);
+        hits.sort((a, b) => (b.t || 0) - (a.t || 0));
+        return hits.length ? new Uint8Array(hits[0].pcm) : null;
+      } catch {
+        return null;
+      }
     }
 
     async function fetchApiRetry(url) {
@@ -2064,8 +2079,8 @@
         const name = String(v || '').trim();
         if (name && voices.indexOf(name) < 0) voices.push(name);
       };
-      add(meta.voice);
-      if (!meta.voice) {
+      add(meta.storedVoice);
+      if (!meta.storedVoice) {
         try {
           add(await clipVoiceForTitle(lat, lng, title));
         } catch { /* catalog is optional */ }
@@ -2091,7 +2106,7 @@
         let pcm = meta.pcm || null;
         let storedLabel = pcm ? 'Stored clip' : '';
         if (!pcm) {
-          pcm = await readLocalClip(key);
+          pcm = await readLocalClip(key, meta.pageid);
           if (pcm) storedLabel = 'Saved voice';
         }
         if (gen !== speakGen) return;
@@ -2770,6 +2785,8 @@
         lng: story.lng,
         title: story.title,
         voice,
+        pageid: story.pageid,
+        storedVoice: story.voice || '',
         pcm: extraOnly || note ? null : story.sharedPcm,
         preferStored: !extraOnly && !!(opts && opts.preferStored)
       };

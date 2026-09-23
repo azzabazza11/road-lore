@@ -31,7 +31,7 @@ describe('local story cards', () => {
   it('replays a stored card from saved audio before generating a new voice', () => {
     const speakAt = html.indexOf('async function speakGemini');
     const generateAt = html.indexOf("setVoiceStatus('Generating AI voice…')", speakAt);
-    const localAt = html.indexOf('readLocalClip(key)', speakAt);
+    const localAt = html.indexOf('readLocalClip(key, meta.pageid)', speakAt);
     const siteAt = html.indexOf('siteStoredClip(meta, voice)', speakAt);
     assert.ok(localAt > speakAt && localAt < generateAt);
     assert.ok(siteAt > localAt && siteAt < generateAt);
@@ -41,5 +41,7 @@ describe('local story cards', () => {
     assert.match(html, /radius: '12000'/);
     assert.match(html, /voice: story\.voice \|\| ''/);
     assert.match(html, /function nearbyClipForTitle/);
+    assert.match(html, /storedVoice: story\.voice \|\| ''/);
+    assert.match(html, /readLocalClip\(key, meta\.pageid\)/);
   });
 });
